@@ -1,1 +1,1 @@
-python trackgen.py --basepath /autofs/space/nicc_003/users/olchanyi/data/HCP100/ --caselist case_list_full.txt --datapath T1w/Diffusion/data.nii.gz --bvalpath T1w/Diffusion/bvals --bvecpath T1w/Diffusion/bvecs
+python trackgen.py --basepath /autofs/space/nicc_003/users/olchanyi/data/HCP100/ --caselist case_list_shortened.txt --datapath T1w/Diffusion/data.nii.gz --bvalpath T1w/Diffusion/bvals --bvecpath T1w/Diffusion/bvecs
