@@ -1,0 +1,4 @@
+SimpleITK
+torch
+numpy
+matplotlib

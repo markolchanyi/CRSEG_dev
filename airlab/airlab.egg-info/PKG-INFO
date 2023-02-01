@@ -1,0 +1,11 @@
+Metadata-Version: 1.0
+Name: airlab
+Version: 0.2.1
+Summary: Autograd Image Registraion Laboratory
+Home-page: https://github.com/airlab-unibas/airlab
+Author: Robin Sandkuehler, Christoph Jud
+Author-email: robin.sandkuehler@unibas.ch
+License: UNKNOWN
+Description: UNKNOWN
+Keywords: image registration
+Platform: UNKNOWN
