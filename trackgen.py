@@ -41,7 +41,7 @@ for case_path in case_list_full:
         letters = string.ascii_lowercase
         scratch_str = "temp_" + ''.join(random.choice(letters) for i in range(10))
         scratch_dir = os.path.join(case_path,scratch_str,"")
-        output_dir = os.path.join(case_path,"mrtrix_outputs","")
+        output_dir = os.path.join(case_path,"mrtrix_outputs_full","")
 
         if os.path.exists(os.path.join(output_dir,"tracts_concatenated_color.nii.gz")) and os.path.exists(os.path.join(output_dir,"tracts_concatenated.nii.gz")):
             print("MRTRIX outputs already exit...skipping")
