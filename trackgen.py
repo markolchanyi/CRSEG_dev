@@ -167,4 +167,7 @@ for case_path in case_list_full:
 
     except:
         print("some exception has occured!!!!")
+        print_no_newline("deleting scratch directory...")
+        shutil.rmtree(scratch_dir)
+        print("done")
         continue
