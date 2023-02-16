@@ -41,7 +41,7 @@ for case_path in case_list_full:
         letters = string.ascii_lowercase
         scratch_str = "temp_" + ''.join(random.choice(letters) for i in range(10))
         scratch_dir = os.path.join(case_path,scratch_str,"")
-        output_dir = os.path.join(case_path,"mrtrix_outputs_full","")
+        output_dir = os.path.join(case_path,"mrtrix_outputs_full_v3","")
 
         if os.path.exists(os.path.join(output_dir,"tracts_concatenated_color.nii.gz")) and os.path.exists(os.path.join(output_dir,"tracts_concatenated.nii.gz")):
             print("MRTRIX outputs already exit...skipping")
@@ -87,15 +87,14 @@ for case_path in case_list_full:
 
         thal_labels = [10,49]
         DC_labels = [28,60]
-        cort_labels = [3,42]
+        cort_labels = [18,54]
         CB_labels = [7,46]
         brainstem_label = 16
 
         print_no_newline("extracting subcortical samseg labels...")
         ## special dilation and overlap with dilated cortical label to get most anterior portion of DC
-        os.system("mri_binarize --noverbose --i " + os.path.join(samseg_path,"seg.mgz ") + " --o " + os.path.join(scratch_dir,"DC.nii") + " --match " + str(DC_labels[0]) + " " + str(DC_labels[1])) + " --dilate 4"
-        os.system("mri_binarize --noverbose --i " + os.path.join(samseg_path,"seg.mgz ") + " --o " + os.path.join(scratch_dir,"cort.nii") + " --match " + str(cort_labels[0]) + " " + str(cort_labels[1])) + " --dilate 4"
-
+        os.system("mri_binarize --noverbose --i " + os.path.join(samseg_path,"seg.mgz ") + " --o " + os.path.join(scratch_dir,"DC.nii") + " --match " + str(DC_labels[0]) + " " + str(DC_labels[1]))
+        os.system("mri_binarize --noverbose --i " + os.path.join(samseg_path,"seg.mgz ") + " --o " + os.path.join(scratch_dir,"cort.nii") + " --match " + str(cort_labels[0]) + " " + str(cort_labels[1]))
         os.system("mri_binarize --noverbose --i " + os.path.join(samseg_path,"seg.mgz ") + " --o " + os.path.join(scratch_dir,"thal.nii") + " --match " + str(thal_labels[0]) + " " + str(thal_labels[1]))
         os.system("mri_binarize --noverbose --i " + os.path.join(samseg_path,"seg.mgz ") + " --o " + os.path.join(scratch_dir,"CB.nii") + " --match " + str(CB_labels[0]) + " " + str(CB_labels[1]))
         os.system("mri_binarize --noverbose --i " + os.path.join(samseg_path,"seg.mgz ") + " --o " + os.path.join(scratch_dir,"brainstem.nii") + " --match " + str(brainstem_label))
@@ -127,12 +126,16 @@ for case_path in case_list_full:
             os.system("mrconvert " + os.path.join(scratch_dir,"thal.nii") + " " + os.path.join(scratch_dir,"thal.mif") + " -force")
             os.system("mrconvert " + os.path.join(scratch_dir,"DC.nii") + " " + os.path.join(scratch_dir,"DC.mif") + " -force")
             os.system("mrconvert " + os.path.join(scratch_dir,"cort.nii") + " " + os.path.join(scratch_dir,"cort.mif") + " -force")
+            os.system("mrconvert " + os.path.join(scratch_dir,"CB.nii") + " " + os.path.join(scratch_dir,"CB.mif") + " -force")
 
             print_no_newline("performing intersection of dilated cortical and DC SAMSEG labels...")
-            os.system("mrcalc " + os.path.join(scratch_dir,"DC.mif") + " " + os.path.join(scratch_dir,"cort.mif") + " -mult" + os.path.join(scratch_dir,"DC.mif") + " -force")
+            os.system("maskfilter " + os.path.join(scratch_dir,"DC.mif") + " dilate -npass 4 " + os.path.join(scratch_dir,"DC.mif") + " -force")
+            os.system("maskfilter " + os.path.join(scratch_dir,"cort.mif") + " dilate -npass 4 " + os.path.join(scratch_dir,"cort.mif") + " -force")
+            os.system("maskfilter " + os.path.join(scratch_dir,"thal.mif") + " erode -npass 4 " + os.path.join(scratch_dir,"thal.mif") + " -force")
+            os.system("maskfilter " + os.path.join(scratch_dir,"CB.mif") + " erode -npass 4 " + os.path.join(scratch_dir,"CB.mif") + " -force")
+            os.system("mrcalc " + os.path.join(scratch_dir,"DC.mif") + " " + os.path.join(scratch_dir,"cort.mif") + " -mult " + os.path.join(scratch_dir,"DC.mif") + " -force")
             print("done")
 
-            os.system("mrconvert " + os.path.join(scratch_dir,"CB.nii") + " " + os.path.join(scratch_dir,"CB.mif") + " -force")
             os.system("mrconvert " + os.path.join(scratch_dir,"brainstem.nii") + " " + os.path.join(scratch_dir,"brainstem.mif") + " -force")
 
         ##### probabilistic tract generation #####
@@ -141,7 +144,7 @@ for case_path in case_list_full:
             os.system("tckgen -algorithm iFOD2 -angle 50 -select 100000 -seed_image " + os.path.join(scratch_dir,"thal.mif") + " -include " + os.path.join(scratch_dir,"brainstem.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"tracts_thal.tck") + " -force -nthreads 10")
         if not os.path.exists(os.path.join(scratch_dir,"tracts_DC.tck")):
             print("starting tracking on DC.mif")
-            os.system("tckgen -algorithm iFOD2 -angle 50 -select 100000 -seed_image " + os.path.join(scratch_dir,"DC.mif") + " -include " + os.path.join(scratch_dir,"brainstem.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"tracts_DC.tck") + " -force -nthreads 10")
+            os.system("tckgen -algorithm iFOD2 -angle 50 -select 100000 -seed_image " + os.path.join(scratch_dir,"DC.mif") + " -include " + os.path.join(scratch_dir,"brainstem.mif") + " -exclude " + os.path.join(scratch_dir,"CB.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"tracts_DC.tck") + " -force -nthreads 10")
         if not os.path.exists(os.path.join(scratch_dir,"tracts_CB.tck")):
             print("starting tracking on CB.mif")
             os.system("tckgen -algorithm iFOD2 -angle 50 -select 50000 -seed_image " + os.path.join(scratch_dir,"CB.mif") + " -include " + os.path.join(scratch_dir,"DC.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"tracts_CB.tck") + " -force -nthreads 10")
