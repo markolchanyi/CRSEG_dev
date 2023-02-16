@@ -6,7 +6,7 @@ import string
 import multiprocessing as mp
 import sys
 from dipy.io.image import load_nifti, save_nifti
-from utils import print_no_newline, parse_args_mrtrix
+from utils import print_no_newline, parse_args_mrtrix, count_shells
 
 
 
@@ -29,6 +29,9 @@ for index, line in enumerate(lines):
     case_list_full.append(os.path.join(basepath + case))
 casefile.close()
 
+# find out if single-shell or not to degermine which FOD algorithm to use
+shell_count = count_shells(bval_path)
+single_shell = shell_count <= 2
 
 for case_path in case_list_full:
 

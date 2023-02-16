@@ -1,5 +1,6 @@
 import os,sys
 import argparse
+import json
 
 
 def print_no_newline(string):
@@ -16,3 +17,19 @@ def parse_args_mrtrix():
     parser.add_argument('-bc','--bvalpath', help="Local path to bval file", type=str, required=True)
     parser.add_argument('-bv','--bvecpath', help="Local path to bvec file", type=str, required=True)
     return parser.parse_args()
+
+
+def count_shells(bval_path):
+    shell_list = []
+    shell_count = 0
+    with open(bval_path,"r") as f:
+        shell_list = set(f.readlines())
+        count = len(shell_list)
+    print("Diffusion data contains " + str(count) + " unique shell values...")
+    return count
+
+
+def get_header_resolution(dwi_json_path):
+    f = open(dwi_json_path)
+    dw_head = json.load(f)
+    return dw_head['spacing'][0]

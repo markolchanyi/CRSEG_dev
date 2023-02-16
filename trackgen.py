@@ -6,7 +6,7 @@ import string
 import multiprocessing as mp
 import sys
 from dipy.io.image import load_nifti, save_nifti
-from utils import print_no_newline, parse_args_mrtrix
+from utils import print_no_newline, parse_args_mrtrix, count_shells, get_header_resolution
 
 
 
@@ -28,6 +28,10 @@ for index, line in enumerate(lines):
     case = line.strip()
     case_list_full.append(os.path.join(basepath + case))
 casefile.close()
+
+# find out if single-shell or not to degermine which FOD algorithm to use
+shell_count = count_shells(bval_path)
+single_shell = shell_count <= 2
 
 
 for case_path in case_list_full:
@@ -110,33 +114,46 @@ for case_path in case_list_full:
         ## get region-specific response functions to better estimate ODF behavior
         print_no_newline("obtaining response functions...")
         if not os.path.exists(os.path.join(scratch_dir,"wm.txt")):
-            os.system("dwi2response dhollander " + os.path.join(scratch_dir,"dwi.mif") + " " + os.path.join(scratch_dir,"wm.txt") + " " + os.path.join(scratch_dir,"gm.txt") + " " + os.path.join(scratch_dir,"csf.txt") + " -force -quiet")
+            if not single_shell:
+                os.system("dwi2response dhollander " + os.path.join(scratch_dir,"dwi.mif") + " " + os.path.join(scratch_dir,"wm.txt") + " " + os.path.join(scratch_dir,"gm.txt") + " " + os.path.join(scratch_dir,"csf.txt") + " -force -quiet")
+            else:
+                os.system("dwi2response tournier " + os.path.join(scratch_dir,"dwi.mif") + " " + os.path.join(scratch_dir,"wm.txt") + " -force -quiet")
         print("done")
         ## fit ODFs
         print_no_newline("fitting ODFs with msmt_CSD...")
         if not os.path.exists(os.path.join(scratch_dir,"wmfod.mif")):
-            os.system("dwi2fod msmt_csd " + os.path.join(scratch_dir,"dwi.mif") + " -mask " + os.path.join(scratch_dir,"brain_mask.mif") + " " + os.path.join(scratch_dir,"wm.txt") + " " + os.path.join(scratch_dir,"wmfod.mif") +  " " + os.path.join(scratch_dir,"gm.txt") + " " + os.path.join(scratch_dir,"gmfod.mif") +  " " + os.path.join(scratch_dir,"csf.txt") + " " + os.path.join(scratch_dir,"csffod.mif") + " -force -nthreads 10 -quiet")
+            if not single_shell:
+                os.system("dwi2fod msmt_csd " + os.path.join(scratch_dir,"dwi.mif") + " -mask " + os.path.join(scratch_dir,"brain_mask.mif") + " " + os.path.join(scratch_dir,"wm.txt") + " " + os.path.join(scratch_dir,"wmfod.mif") +  " " + os.path.join(scratch_dir,"gm.txt") + " " + os.path.join(scratch_dir,"gmfod.mif") +  " " + os.path.join(scratch_dir,"csf.txt") + " " + os.path.join(scratch_dir,"csffod.mif") + " -force -nthreads 10 -quiet")
+            else:
+                os.system("dwi2fod csd " + os.path.join(scratch_dir,"dwi.mif") + " " + os.path.join(scratch_dir,"wm.txt") + " " + os.path.join(scratch_dir,"wmfod.mif") + " -mask " + os.path.join(scratch_dir,"brain_mask.mif") + " -lmax 6 -force -nthreads 10 -quiet")
         print("done")
         ## normalize ODFs for group tests
         if not os.path.exists(os.path.join(scratch_dir,"wmfod_norm.mif")):
-            os.system("mtnormalise " + os.path.join(scratch_dir,"wmfod.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"gmfod.mif") + " " + os.path.join(scratch_dir,"gmfod_norm.mif") + " " + os.path.join(scratch_dir,"csffod.mif") + " " + os.path.join(scratch_dir,"csffod_norm.mif") + " -mask " + os.path.join(scratch_dir,"brain_mask.mif") + " -force")
-
+            if single_shell:
+                os.system("mtnormalise " + os.path.join(scratch_dir,"wmfod.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"gmfod.mif") + " " + os.path.join(scratch_dir,"gmfod_norm.mif") + " " + os.path.join(scratch_dir,"csffod.mif") + " " + os.path.join(scratch_dir,"csffod_norm.mif") + " -mask " + os.path.join(scratch_dir,"brain_mask.mif") + " -force")
+            else:
+                os.system("mtnormalise " + os.path.join(scratch_dir,"wmfod.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " -mask " + os.path.join(scratch_dir,"brain_mask.mif") + " -force")
         ##### convert ROIs into MIFs #####
         if not os.path.exists(os.path.join(scratch_dir,"brainstem.mif")) or not os.path.exists(os.path.join(scratch_dir,"CB.mif")) or not os.path.exists(os.path.join(scratch_dir,"DC.mif")) or not os.path.exists(os.path.join(scratch_dir,"thal.mif")):
             os.system("mrconvert " + os.path.join(scratch_dir,"thal.nii") + " " + os.path.join(scratch_dir,"thal.mif") + " -force")
             os.system("mrconvert " + os.path.join(scratch_dir,"DC.nii") + " " + os.path.join(scratch_dir,"DC.mif") + " -force")
             os.system("mrconvert " + os.path.join(scratch_dir,"cort.nii") + " " + os.path.join(scratch_dir,"cort.mif") + " -force")
             os.system("mrconvert " + os.path.join(scratch_dir,"CB.nii") + " " + os.path.join(scratch_dir,"CB.mif") + " -force")
+            os.system("mrconvert " + os.path.join(scratch_dir,"brainstem.nii") + " " + os.path.join(scratch_dir,"brainstem.mif") + " -force")
 
-            print_no_newline("performing intersection of dilated cortical and DC SAMSEG labels...")
-            os.system("maskfilter " + os.path.join(scratch_dir,"DC.mif") + " dilate -npass 4 " + os.path.join(scratch_dir,"DC.mif") + " -force")
-            os.system("maskfilter " + os.path.join(scratch_dir,"cort.mif") + " dilate -npass 4 " + os.path.join(scratch_dir,"cort.mif") + " -force")
-            os.system("maskfilter " + os.path.join(scratch_dir,"thal.mif") + " erode -npass 4 " + os.path.join(scratch_dir,"thal.mif") + " -force")
-            os.system("maskfilter " + os.path.join(scratch_dir,"CB.mif") + " erode -npass 4 " + os.path.join(scratch_dir,"CB.mif") + " -force")
+            print_no_newline("performing intersection of dilated amyg and DC SAMSEG labels...")
+            os.system("mrinfo -json_all " + os.path.join(scratch_dir,"header.json") + " " + os.path.join(scratch_dir,"dwi.mif") + " -force")
+            vox_resolution = get_header_resolution(os.path.join(scratch_dir,"header.json"))
+            print("header resolution is " + str(vox_resolution) + " mm")
+            morpho_amount = int(5/vox_resolution)
+            print("morphing by " + str(morpho_amount) + " voxels")
+            os.system("mrinfo -spacing " + os.path.join(scratch_dir,"dwi.mif") + " > " + os.path.join(scratch_dir,"diffvoxspacing.txt"))
+            os.system("maskfilter " + os.path.join(scratch_dir,"DC.mif") + " dilate -npass " + morpho_amount + " " + os.path.join(scratch_dir,"DC.mif") + " -force")
+            os.system("maskfilter " + os.path.join(scratch_dir,"cort.mif") + " dilate -npass " + morpho_amount + " " + os.path.join(scratch_dir,"cort.mif") + " -force")
+            os.system("maskfilter " + os.path.join(scratch_dir,"thal.mif") + " erode -npass " + morpho_amount + " " + os.path.join(scratch_dir,"thal.mif") + " -force")
+            os.system("maskfilter " + os.path.join(scratch_dir,"CB.mif") + " erode -npass " + morpho_amount + " " + os.path.join(scratch_dir,"CB.mif") + " -force")
             os.system("mrcalc " + os.path.join(scratch_dir,"DC.mif") + " " + os.path.join(scratch_dir,"cort.mif") + " -mult " + os.path.join(scratch_dir,"DC.mif") + " -force")
             print("done")
-
-            os.system("mrconvert " + os.path.join(scratch_dir,"brainstem.nii") + " " + os.path.join(scratch_dir,"brainstem.mif") + " -force")
 
         ##### probabilistic tract generation #####
         if not os.path.exists(os.path.join(scratch_dir,"tracts_thal.tck")):
