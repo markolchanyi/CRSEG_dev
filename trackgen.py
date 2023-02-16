@@ -29,11 +29,6 @@ for index, line in enumerate(lines):
     case_list_full.append(os.path.join(basepath + case))
 casefile.close()
 
-# find out if single-shell or not to degermine which FOD algorithm to use
-shell_count = count_shells(bval_path)
-single_shell = shell_count <= 2
-
-
 for case_path in case_list_full:
 
     try:
@@ -68,7 +63,7 @@ for case_path in case_list_full:
 
 
 
-        ##### MRTRIX and SAMSEG calls #####
+        ##### Initial MRTRIX calls #####
 
         ## convert dwi to MIF format
         if not os.path.exists(os.path.join(scratch_dir,"dwi.mif")):
@@ -80,6 +75,11 @@ for case_path in case_list_full:
             os.system("dwiextract " + os.path.join(scratch_dir,"dwi.mif") + " - -bzero | mrmath - mean " + os.path.join(scratch_dir,"mean_b0.mif") + " -axis 3 -force")
         print("done")
 
+        # find out if single-shell or not to degermine which FOD algorithm to use
+        shell_count = count_shells(os.path.join(scratch_dir,"dwi.bval"))
+        print_no_newline("There are " str(shell_count) + " unique shells (including b=0 shell)")
+        single_shell = shell_count <= 2
+        print("...single_shell mode is " + str(single_shell))
 
 
         ##### SAMSEG CALLS #####
