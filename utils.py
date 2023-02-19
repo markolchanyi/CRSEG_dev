@@ -25,7 +25,6 @@ def count_shells(bval_path):
     with open(bval_path,"r") as f:
         shell_list = set(f.readlines())
         count = len(shell_list)
-    print("Diffusion data contains " + str(count) + " unique shell values...")
     return count
 
 
