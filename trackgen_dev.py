@@ -148,23 +148,23 @@ for case_path in case_list_full:
             morpho_amount = int(5/vox_resolution)
             print("morphing by " + str(morpho_amount) + " voxels")
 
-            os.system("maskfilter " + os.path.join(scratch_dir,"DC.mif") + " dilate -npass " + str(4) + " " + os.path.join(scratch_dir,"DC.mif") + " -force")
-            os.system("maskfilter " + os.path.join(scratch_dir,"cort.mif") + " dilate -npass " + str(4) + " " + os.path.join(scratch_dir,"cort.mif") + " -force")
-            os.system("maskfilter " + os.path.join(scratch_dir,"thal.mif") + " erode -npass " + str(4) + " " + os.path.join(scratch_dir,"thal.mif") + " -force")
-            os.system("maskfilter " + os.path.join(scratch_dir,"CB.mif") + " erode -npass " + str(4) + " " + os.path.join(scratch_dir,"CB.mif") + " -force")
+            os.system("maskfilter " + os.path.join(scratch_dir,"DC.mif") + " dilate -npass " + str(morpho_amount) + " " + os.path.join(scratch_dir,"DC.mif") + " -force")
+            os.system("maskfilter " + os.path.join(scratch_dir,"cort.mif") + " dilate -npass " + str(morpho_amount) + " " + os.path.join(scratch_dir,"cort.mif") + " -force")
+            os.system("maskfilter " + os.path.join(scratch_dir,"thal.mif") + " erode -npass " + str(morpho_amount) + " " + os.path.join(scratch_dir,"thal.mif") + " -force")
+            os.system("maskfilter " + os.path.join(scratch_dir,"CB.mif") + " erode -npass " + str(2) + " " + os.path.join(scratch_dir,"CB.mif") + " -force")
             os.system("mrcalc " + os.path.join(scratch_dir,"DC.mif") + " " + os.path.join(scratch_dir,"cort.mif") + " -mult " + os.path.join(scratch_dir,"DC.mif") + " -force")
             print("done")
 
         ##### probabilistic tract generation #####
         if not os.path.exists(os.path.join(scratch_dir,"tracts_thal.tck")):
             print("starting tracking on thal.mif")
-            os.system("tckgen -algorithm iFOD1 -angle 50 -select 200000 -seed_image " + os.path.join(scratch_dir,"thal.mif") + " -include " + os.path.join(scratch_dir,"brainstem.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"tracts_thal.tck") + " -force -nthreads 10")
+            os.system("tckgen -algorithm iFOD2 -angle 50 -step 0.65 -select 500000 -seed_image " + os.path.join(scratch_dir,"thal.mif") + " -include " + os.path.join(scratch_dir,"brainstem.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"tracts_thal.tck") + " -max_attempts_per_seed 200 -trials 300 -force -nthreads 10")
         if not os.path.exists(os.path.join(scratch_dir,"tracts_DC.tck")):
             print("starting tracking on DC.mif")
-            os.system("tckgen -algorithm iFOD1 -angle 50 -select 200000 -seed_image " + os.path.join(scratch_dir,"DC.mif") + " -include " + os.path.join(scratch_dir,"brainstem.mif") + " -exclude " + os.path.join(scratch_dir,"CB.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"tracts_DC.tck") + " -force -nthreads 10")
+            os.system("tckgen -algorithm iFOD2 -angle 50 -step 0.65 -select 500000 -seed_image " + os.path.join(scratch_dir,"DC.mif") + " -include " + os.path.join(scratch_dir,"brainstem.mif") + " -exclude " + os.path.join(scratch_dir,"CB.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"tracts_DC.tck") + " -max_attempts_per_seed 200 -trials 300 -force -nthreads 10")
         if not os.path.exists(os.path.join(scratch_dir,"tracts_CB.tck")):
             print("starting tracking on CB.mif")
-            os.system("tckgen -algorithm iFOD1 -angle 50 -select 100000 -seed_image " + os.path.join(scratch_dir,"CB.mif") + " -include " + os.path.join(scratch_dir,"DC.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"tracts_CB.tck") + " -force -nthreads 10")
+            os.system("tckgen -algorithm iFOD2 -angle 50 -step 0.65 -select 500000 -seed_image " + os.path.join(scratch_dir,"CB.mif") + " -include " + os.path.join(scratch_dir,"DC.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"tracts_CB.tck") + " -max_attempts_per_seed 200 -trials 300 -force -nthreads 10")
 
         ##### converting tracts into scalar tract densities
         if not os.path.exists(os.path.join(scratch_dir,"tracts_thal.mif")):
@@ -185,8 +185,8 @@ for case_path in case_list_full:
         ### move relevent files back to static directory
         os.system("mv " + os.path.join(scratch_dir,"tracts_concatenated.mif") + " " + output_dir)
         os.system("mv " + os.path.join(scratch_dir,"tracts_concatenated_color.mif") + " " + output_dir)
-        os.system("mrconvert " + os.path.join(output_dir,"tracts_concatenated.mif") + " " + os.path.join(output_dir,"tracts_concatenated.nii.gz") + " -datatype float32")
-        os.system("mrconvert " + os.path.join(output_dir,"tracts_concatenated_color.mif") + " " + os.path.join(output_dir,"tracts_concatenated_color.nii.gz") + " -datatype float32")
+        os.system("mrconvert " + os.path.join(output_dir,"tracts_concatenated.mif") + " " + os.path.join(output_dir,"tracts_concatenated.nii.gz") + " -datatype float32 -force")
+        os.system("mrconvert " + os.path.join(output_dir,"tracts_concatenated_color.mif") + " " + os.path.join(output_dir,"tracts_concatenated_color.nii.gz") + " -datatype float32 -force")
 
 
         #### delete scratch directory
