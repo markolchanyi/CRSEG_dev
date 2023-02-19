@@ -3,6 +3,7 @@ import shutil
 import math
 import random
 import string
+import traceback
 import multiprocessing as mp
 import sys
 from dipy.io.image import load_nifti, save_nifti
@@ -40,7 +41,7 @@ for case_path in case_list_full:
         letters = string.ascii_lowercase
         scratch_str = "temp_" + ''.join(random.choice(letters) for i in range(10))
         scratch_dir = os.path.join(case_path,scratch_str,"")
-        output_dir = os.path.join(case_path,"mrtrix_outputs_full_v3","")
+        output_dir = os.path.join(case_path,"mrtrix_outputs_full_v4","")
 
         if os.path.exists(os.path.join(output_dir,"tracts_concatenated_color.nii.gz")) and os.path.exists(os.path.join(output_dir,"tracts_concatenated.nii.gz")):
             print("MRTRIX outputs already exit...skipping")
@@ -75,9 +76,9 @@ for case_path in case_list_full:
             os.system("dwiextract " + os.path.join(scratch_dir,"dwi.mif") + " - -bzero | mrmath - mean " + os.path.join(scratch_dir,"mean_b0.mif") + " -axis 3 -force")
         print("done")
 
+        os.system("mrinfo -json_all " + os.path.join(scratch_dir,"header.json") + " " + os.path.join(scratch_dir,"dwi.mif") + " -force")
         # find out if single-shell or not to degermine which FOD algorithm to use
-        shell_count = count_shells(os.path.join(scratch_dir,"dwi.bval"))
-        print_no_newline("There are " str(shell_count) + " unique shells (including b=0 shell)")
+        shell_count = count_shells(os.path.join(scratch_dir,"header.json"))
         single_shell = shell_count <= 2
         print("...single_shell mode is " + str(single_shell))
 
@@ -129,7 +130,7 @@ for case_path in case_list_full:
         print("done")
         ## normalize ODFs for group tests
         if not os.path.exists(os.path.join(scratch_dir,"wmfod_norm.mif")):
-            if single_shell:
+            if not single_shell:
                 os.system("mtnormalise " + os.path.join(scratch_dir,"wmfod.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"gmfod.mif") + " " + os.path.join(scratch_dir,"gmfod_norm.mif") + " " + os.path.join(scratch_dir,"csffod.mif") + " " + os.path.join(scratch_dir,"csffod_norm.mif") + " -mask " + os.path.join(scratch_dir,"brain_mask.mif") + " -force")
             else:
                 os.system("mtnormalise " + os.path.join(scratch_dir,"wmfod.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " -mask " + os.path.join(scratch_dir,"brain_mask.mif") + " -force")
@@ -142,29 +143,28 @@ for case_path in case_list_full:
             os.system("mrconvert " + os.path.join(scratch_dir,"brainstem.nii") + " " + os.path.join(scratch_dir,"brainstem.mif") + " -force")
 
             print_no_newline("performing intersection of dilated amyg and DC SAMSEG labels...")
-            os.system("mrinfo -json_all " + os.path.join(scratch_dir,"header.json") + " " + os.path.join(scratch_dir,"dwi.mif") + " -force")
             vox_resolution = get_header_resolution(os.path.join(scratch_dir,"header.json"))
             print("header resolution is " + str(vox_resolution) + " mm")
             morpho_amount = int(5/vox_resolution)
             print("morphing by " + str(morpho_amount) + " voxels")
-            os.system("mrinfo -spacing " + os.path.join(scratch_dir,"dwi.mif") + " > " + os.path.join(scratch_dir,"diffvoxspacing.txt"))
-            os.system("maskfilter " + os.path.join(scratch_dir,"DC.mif") + " dilate -npass " + morpho_amount + " " + os.path.join(scratch_dir,"DC.mif") + " -force")
-            os.system("maskfilter " + os.path.join(scratch_dir,"cort.mif") + " dilate -npass " + morpho_amount + " " + os.path.join(scratch_dir,"cort.mif") + " -force")
-            os.system("maskfilter " + os.path.join(scratch_dir,"thal.mif") + " erode -npass " + morpho_amount + " " + os.path.join(scratch_dir,"thal.mif") + " -force")
-            os.system("maskfilter " + os.path.join(scratch_dir,"CB.mif") + " erode -npass " + morpho_amount + " " + os.path.join(scratch_dir,"CB.mif") + " -force")
+
+            os.system("maskfilter " + os.path.join(scratch_dir,"DC.mif") + " dilate -npass " + str(morpho_amount) + " " + os.path.join(scratch_dir,"DC.mif") + " -force")
+            os.system("maskfilter " + os.path.join(scratch_dir,"cort.mif") + " dilate -npass " + str(morpho_amount) + " " + os.path.join(scratch_dir,"cort.mif") + " -force")
+            os.system("maskfilter " + os.path.join(scratch_dir,"thal.mif") + " erode -npass " + str(morpho_amount) + " " + os.path.join(scratch_dir,"thal.mif") + " -force")
+            os.system("maskfilter " + os.path.join(scratch_dir,"CB.mif") + " erode -npass " + str(morpho_amount) + " " + os.path.join(scratch_dir,"CB.mif") + " -force")
             os.system("mrcalc " + os.path.join(scratch_dir,"DC.mif") + " " + os.path.join(scratch_dir,"cort.mif") + " -mult " + os.path.join(scratch_dir,"DC.mif") + " -force")
             print("done")
 
         ##### probabilistic tract generation #####
         if not os.path.exists(os.path.join(scratch_dir,"tracts_thal.tck")):
             print("starting tracking on thal.mif")
-            os.system("tckgen -algorithm iFOD2 -angle 50 -select 100000 -seed_image " + os.path.join(scratch_dir,"thal.mif") + " -include " + os.path.join(scratch_dir,"brainstem.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"tracts_thal.tck") + " -force -nthreads 10")
+            os.system("tckgen -algorithm iFOD2 -angle 50 -select 100000 -seed_image " + os.path.join(scratch_dir,"thal.mif") + " -include " + os.path.join(scratch_dir,"brainstem.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"tracts_thal.tck") + " -max_attempts_per_seed 750 -trials 750 -force -nthreads 10")
         if not os.path.exists(os.path.join(scratch_dir,"tracts_DC.tck")):
             print("starting tracking on DC.mif")
-            os.system("tckgen -algorithm iFOD2 -angle 50 -select 100000 -seed_image " + os.path.join(scratch_dir,"DC.mif") + " -include " + os.path.join(scratch_dir,"brainstem.mif") + " -exclude " + os.path.join(scratch_dir,"CB.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"tracts_DC.tck") + " -force -nthreads 10")
+            os.system("tckgen -algorithm iFOD2 -angle 50 -select 100000 -seed_image " + os.path.join(scratch_dir,"DC.mif") + " -include " + os.path.join(scratch_dir,"brainstem.mif") + " -exclude " + os.path.join(scratch_dir,"CB.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"tracts_DC.tck") + " -max_attempts_per_seed 750 -trials 750 -force -nthreads 10")
         if not os.path.exists(os.path.join(scratch_dir,"tracts_CB.tck")):
             print("starting tracking on CB.mif")
-            os.system("tckgen -algorithm iFOD2 -angle 50 -select 50000 -seed_image " + os.path.join(scratch_dir,"CB.mif") + " -include " + os.path.join(scratch_dir,"DC.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"tracts_CB.tck") + " -force -nthreads 10")
+            os.system("tckgen -algorithm iFOD2 -angle 50 -select 50000 -seed_image " + os.path.join(scratch_dir,"CB.mif") + " -include " + os.path.join(scratch_dir,"DC.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"tracts_CB.tck") + " -max_attempts_per_seed 750 -trials 750 -force -nthreads 10")
 
         ##### converting tracts into scalar tract densities
         if not os.path.exists(os.path.join(scratch_dir,"tracts_thal.mif")):
@@ -196,6 +196,7 @@ for case_path in case_list_full:
         print("finished case mrtrix and fsl preprocessing \n\n\n\n")
 
     except:
+        traceback.print_exc()
         print("some exception has occured!!!!")
         print_no_newline("deleting scratch directory...")
         shutil.rmtree(scratch_dir)
