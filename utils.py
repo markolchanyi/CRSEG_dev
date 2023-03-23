@@ -1,7 +1,8 @@
 import os,sys
 import argparse
 import json
-
+import numpy as np
+from dipy.io.image import load_nifti, save_nifti
 
 def print_no_newline(string):
     sys.stdout.write(string)
@@ -16,6 +17,8 @@ def parse_args_mrtrix():
     parser.add_argument('-d','--datapath', help="Local path to original DWI file", type=str, required=True)
     parser.add_argument('-bc','--bvalpath', help="Local path to bval file", type=str, required=True)
     parser.add_argument('-bv','--bvecpath', help="Local path to bvec file", type=str, required=True)
+    parser.add_argument('-cs','--cropsize', help="crop size around the brainstem", type=str, required=True)
+    parser.add_argument('-o','--output',help="output directory for MRTrix tractography volumes", type=str, required=True)
     return parser.parse_args()
 
 
@@ -39,3 +42,15 @@ def get_header_resolution(dwi_json_path):
     f = open(dwi_json_path)
     dw_head = json.load(f)
     return dw_head['spacing'][0]
+
+def tractography_mask(template_vol_path,output_path):
+    template_vol,aff = load_nifti(template_vol_path, return_img=False)
+    mask_vol = np.zeros_like(template_vol,dtype=int)
+    
+    label_coords=np.argwhere(template_vol==1)
+    
+    min_point=np.min(label_coords[:],axis=0)    
+    max_point=np.max(label_coords[:],axis=0)    
+  
+    mask_vol[min_point[0]:max_point[0],min_point[1]:max_point[1],min_point[2]:max_point[2]] = 1
+    save_nifti(output_path,mask_vol,aff)

@@ -4,10 +4,22 @@ import math
 import random
 import string
 import traceback
-import multiprocessing as mp
 import sys
+import numpy as np
+import multiprocessing as mp
 from dipy.io.image import load_nifti, save_nifti
-from utils import print_no_newline, parse_args_mrtrix, count_shells, get_header_resolution
+from utils import print_no_newline, parse_args_mrtrix, count_shells, get_header_resolution, tractography_mask
+
+
+"""
+MrTrix-based probabalistic tractography preprocessing pipeline for brainstem WM bundles 
+
+Usage:
+
+
+Author:
+Mark D. Olchanyi -- 03.17.2023
+"""
 
 
 
@@ -19,6 +31,8 @@ local_data_path = args.datapath
 bval_path = args.bvalpath
 bvec_path = args.bvecpath
 case_list_txt = args.caselist
+crop_size = args.cropsize 
+output_folder = args.output
 
 case_list_full = []
 
@@ -41,9 +55,9 @@ for case_path in case_list_full:
         letters = string.ascii_lowercase
         scratch_str = "temp_" + ''.join(random.choice(letters) for i in range(10))
         scratch_dir = os.path.join(case_path,scratch_str,"")
-        output_dir = os.path.join(case_path,"mrtrix_outputs_full_v4","")
-
-        if os.path.exists(os.path.join(output_dir,"tracts_concatenated_color.nii.gz")) and os.path.exists(os.path.join(output_dir,"tracts_concatenated.nii.gz")):
+        output_dir = os.path.join(case_path,output_folder,"")
+        print("All final MRTrix volumes will be dropped in ", output_dir)
+        if os.path.exists(os.path.join(output_dir,"tracts_concatenated_1mm_cropped.mif")):
             print("MRTRIX outputs already exit...skipping")
             continue
 
@@ -53,10 +67,14 @@ for case_path in case_list_full:
         if not os.path.exists(output_dir):
             print("making fresh output directory...")
             os.makedirs(output_dir)
+        else:
+            print("cleaning out existing output directory...")
+            shutil.rmtree(output_dir)
+            os.makedirs(output_dir)
 
         if not os.path.exists(os.path.join(scratch_dir,"data.nii.gz")):
             case = os.path.basename(case_path)
-            os.system("rsync -av " + os.path.join(args.basepath,os.path.basename(case_path),args.datapath) + " " + scratch_dir)
+            os.system("rsync -av " + os.path.join(args.basepath,os.path.basename(case_path),args.datapath) + " " + os.path.join(scratch_dir,"data.nii.gz"))
         if not os.path.exists(os.path.join(scratch_dir,"dwi.bval")):
             os.system("rsync -av " + os.path.join(args.basepath,os.path.basename(case_path),args.bvalpath) + " " + os.path.join(scratch_dir,"dwi.bval"))
         if not os.path.exists(os.path.join(scratch_dir,"dwi.bvec")):
@@ -70,24 +88,35 @@ for case_path in case_list_full:
         if not os.path.exists(os.path.join(scratch_dir,"dwi.mif")):
             os.system("mrconvert " + os.path.join(scratch_dir,"data.nii.gz") + " " + os.path.join(scratch_dir,"dwi.mif") + " -fslgrad " + os.path.join(scratch_dir,"dwi.bvec") + " " + os.path.join(scratch_dir,"dwi.bval") + " -force")
 
+
+        # extract header voxel resolution and match it to HCP data (1.25mm iso) and
+        # find out if single-shell or not to degermine which FOD algorithm to use.
+        os.system("mrinfo -json_all " + os.path.join(scratch_dir,"header.json") + " " + os.path.join(scratch_dir,"dwi.mif") + " -force")
+        vox_resolution = get_header_resolution(os.path.join(scratch_dir,"header.json"))
+        print("header resolution is " + str(vox_resolution) + " mm")
+        shell_count = count_shells(os.path.join(scratch_dir,"header.json"))
+        single_shell = shell_count <= 2
+        print("...single_shell mode is " + str(single_shell))
+        
+        if vox_resolution != 1.25:
+            print_no_newline("regridding dwi to HCP1200 resolution...")
+            os.system("mrgrid " + os.path.join(scratch_dir,"dwi.mif") + " regrid -vox 1.25 " + os.path.join(scratch_dir,"dwi_regridded_HCP.mif") + " -force")
+            os.system("rm " + os.path.join(scratch_dir,"dwi.mif"))
+            os.system("mv " + os.path.join(scratch_dir,"dwi_regridded_HCP.mif") + " " + os.path.join(scratch_dir,"dwi.mif"))
+            print("done")
         ## extract mean b0 volume
         print_no_newline("extracting temporary b0...")
         if not os.path.exists(os.path.join(scratch_dir,"mean_b0.mif")):
             os.system("dwiextract " + os.path.join(scratch_dir,"dwi.mif") + " - -bzero | mrmath - mean " + os.path.join(scratch_dir,"mean_b0.mif") + " -axis 3 -force")
+            os.system("mrconvert " + os.path.join(scratch_dir,"mean_b0.mif") + " " + os.path.join(scratch_dir,"mean_b0.nii.gz") + " -force")
         print("done")
-
-        os.system("mrinfo -json_all " + os.path.join(scratch_dir,"header.json") + " " + os.path.join(scratch_dir,"dwi.mif") + " -force")
-        # find out if single-shell or not to degermine which FOD algorithm to use
-        shell_count = count_shells(os.path.join(scratch_dir,"header.json"))
-        single_shell = shell_count <= 2
-        print("...single_shell mode is " + str(single_shell))
 
 
         ##### SAMSEG CALLS #####
 
         samseg_path = os.path.join(case_path,"samseg_labels","")
         if not os.path.exists(samseg_path + "seg.mgz"):
-            os.system("run_samseg -i " + os.path.join(scratch_dir,"mean_b0.mif") + " -o " + samseg_path + " --threads 8")
+            os.system("run_samseg -i " + os.path.join(scratch_dir,"mean_b0.nii.gz") + " -o " + samseg_path + " --threads 8")
 
 
         thal_labels = [10,49]
@@ -106,7 +135,21 @@ for case_path in case_list_full:
         print("done")
 
 
+        ## get centroid voxel coordinates of union of thalamic and brainstem masks to obtain bounding box location for smaller ROI for the U-net.
+        os.system("mri_binarize --noverbose --i " + os.path.join(samseg_path,"seg.mgz") + " --o " + os.path.join(scratch_dir,'thal_brainstem_union.mgz') + " --match " + str(brainstem_label) + " " + str(thal_labels[0]) + " " + str(thal_labels[1]))
+        os.system("mri_binarize --noverbose --i " + os.path.join(samseg_path,"seg.mgz ") + " --o " + os.path.join(scratch_dir,"all_labels.nii") + " --match " + str(thal_labels[0]) + " " + str(thal_labels[1]) + " " + str(DC_labels[0]) + " " + str(DC_labels[1]) + " " + str(CB_labels[0]) + " " + str(CB_labels[1]) + " " + str(brainstem_label))
+        os.system("mrcentroid -voxelspace " + os.path.join(scratch_dir,'thal_brainstem_union.mgz') + " > " + os.path.join(scratch_dir,"thal_brainstem_cntr_coords.txt"))
+        os.system("mri_info --vox2ras " + os.path.join(scratch_dir,'thal_brainstem_union.mgz') + " > " + os.path.join(scratch_dir,"thal_brainstem_vox2ras.txt"))
 
+        brainstem_cntr_arr = np.loadtxt(os.path.join(scratch_dir,"thal_brainstem_cntr_coords.txt"))
+        brainstem_cntr_arr_hom = np.append(brainstem_cntr_arr,1.0) ## make homogenous array
+        vox2ras_mat = np.loadtxt(os.path.join(scratch_dir,"thal_brainstem_vox2ras.txt"))
+
+        ras_cntr = np.matmul(vox2ras_mat,brainstem_cntr_arr_hom.T) ## RAS coordinate transform through nultiplying by transform matrix
+        
+        print_no_newline("creating tractography mask from thal and brainstem labels...")
+        track_mask = tractography_mask(os.path.join(scratch_dir,"all_labels.nii"),os.path.join(scratch_dir,'tractography_mask.nii.gz'))
+        print("done")
         ## extract brain mask
         print_no_newline("extracting brain mask...")
         if not os.path.exists(os.path.join(scratch_dir,"brain_mask.mif")):
@@ -143,8 +186,6 @@ for case_path in case_list_full:
             os.system("mrconvert " + os.path.join(scratch_dir,"brainstem.nii") + " " + os.path.join(scratch_dir,"brainstem.mif") + " -force")
 
             print_no_newline("performing intersection of dilated amyg and DC SAMSEG labels...")
-            vox_resolution = get_header_resolution(os.path.join(scratch_dir,"header.json"))
-            print("header resolution is " + str(vox_resolution) + " mm")
             morpho_amount = int(5/vox_resolution)
             print("morphing by " + str(morpho_amount) + " voxels")
 
@@ -158,13 +199,13 @@ for case_path in case_list_full:
         ##### probabilistic tract generation #####
         if not os.path.exists(os.path.join(scratch_dir,"tracts_thal.tck")):
             print("starting tracking on thal.mif")
-            os.system("tckgen -algorithm iFOD2 -angle 50 -select 100000 -seed_image " + os.path.join(scratch_dir,"thal.mif") + " -include " + os.path.join(scratch_dir,"brainstem.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"tracts_thal.tck") + " -max_attempts_per_seed 750 -trials 750 -force -nthreads 10")
+            os.system("tckgen -algorithm iFOD2 -angle 50 -select 100000 -seed_image " + os.path.join(scratch_dir,"thal.mif") + " -include " + os.path.join(scratch_dir,"brainstem.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"tracts_thal.tck") + " -mask " + os.path.join(scratch_dir,'tractography_mask.nii.gz') + " -max_attempts_per_seed 750 -trials 750 -force -nthreads 10")
         if not os.path.exists(os.path.join(scratch_dir,"tracts_DC.tck")):
             print("starting tracking on DC.mif")
-            os.system("tckgen -algorithm iFOD2 -angle 50 -select 100000 -seed_image " + os.path.join(scratch_dir,"DC.mif") + " -include " + os.path.join(scratch_dir,"brainstem.mif") + " -exclude " + os.path.join(scratch_dir,"CB.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"tracts_DC.tck") + " -max_attempts_per_seed 750 -trials 750 -force -nthreads 10")
+            os.system("tckgen -algorithm iFOD2 -angle 50 -select 100000 -seed_image " + os.path.join(scratch_dir,"DC.mif") + " -include " + os.path.join(scratch_dir,"brainstem.mif") + " -exclude " + os.path.join(scratch_dir,"CB.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"tracts_DC.tck") + " -mask " + os.path.join(scratch_dir,'tractography_mask.nii.gz') + " -max_attempts_per_seed 750 -trials 750 -force -nthreads 10")
         if not os.path.exists(os.path.join(scratch_dir,"tracts_CB.tck")):
             print("starting tracking on CB.mif")
-            os.system("tckgen -algorithm iFOD2 -angle 50 -select 50000 -seed_image " + os.path.join(scratch_dir,"CB.mif") + " -include " + os.path.join(scratch_dir,"DC.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"tracts_CB.tck") + " -max_attempts_per_seed 750 -trials 750 -force -nthreads 10")
+            os.system("tckgen -algorithm iFOD2 -angle 50 -select 50000 -seed_image " + os.path.join(scratch_dir,"CB.mif") + " -include " + os.path.join(scratch_dir,"DC.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"tracts_CB.tck") + " -mask " + os.path.join(scratch_dir,'tractography_mask.nii.gz') + " -max_attempts_per_seed 750 -trials 750 -force -nthreads 10")
 
         ##### converting tracts into scalar tract densities
         if not os.path.exists(os.path.join(scratch_dir,"tracts_thal.mif")):
@@ -184,11 +225,14 @@ for case_path in case_list_full:
 
         ### move relevent files back to static directory
         os.system("mv " + os.path.join(scratch_dir,"tracts_concatenated.mif") + " " + output_dir)
-        os.system("mv " + os.path.join(scratch_dir,"tracts_concatenated_color.mif") + " " + output_dir)
-        os.system("mrconvert " + os.path.join(output_dir,"tracts_concatenated.mif") + " " + os.path.join(output_dir,"tracts_concatenated.nii.gz") + " -datatype float32")
-        os.system("mrconvert " + os.path.join(output_dir,"tracts_concatenated_color.mif") + " " + os.path.join(output_dir,"tracts_concatenated_color.nii.gz") + " -datatype float32")
-
-
+        #os.system("mv " + os.path.join(scratch_dir,"tracts_concatenated_color.mif") + " " + output_dir)
+        #os.system("mrconvert " + os.path.join(output_dir,"tracts_concatenated.mif") + " " + os.path.join(output_dir,"tracts_concatenated.nii.gz") + " -datatype float32")
+        #os.system("mrconvert " + os.path.join(output_dir,"tracts_concatenated_color.mif") + " " + os.path.join(output_dir,"tracts_concatenated_color.nii.gz") + " -datatype float32")
+        
+        #os.system("mrgrid " + os.path.join(output_dir,"tracts_concatenated.mif") + " regrid -voxel 1.0 " + os.path.join(output_dir,"tracts_concatenated_1mm.mif" + " -force"))
+        os.system("mri_convert --crop " + str(round(float(brainstem_cntr_arr[0]))) + " " + str(round(float(brainstem_cntr_arr[1]))) + " " +  str(round(float(brainstem_cntr_arr[2]))) + " --cropsize " + crop_size + " " + crop_size + " " + crop_size + " " + os.path.join(scratch_dir,'thal_brainstem_union.mgz') + " " + os.path.join(scratch_dir,'thal_brainstem_union_cropped.mgz'))
+        os.system("mrgrid " + os.path.join(output_dir,"tracts_concatenated.mif") + " regrid -template " + os.path.join(scratch_dir,'thal_brainstem_union_cropped.mgz') + " -voxel 1.0 " + os.path.join(output_dir,"tracts_concatenated_1mm_cropped.mif" + " -force"))
+        
         #### delete scratch directory
         print_no_newline("deleting scratch directory...")
         shutil.rmtree(scratch_dir)
