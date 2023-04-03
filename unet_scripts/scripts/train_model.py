@@ -1,14 +1,14 @@
 import os
 
-from joint_diffusion_structural_seg.training import train
+from unet.training import train
 
 ## machine specific directories
-top_level_training_dir = '/media/henry/_localstore/Brain/synthDTI/large_download/training_reduced'
-top_level_model_dir = '/media/henry/_localstore/Brain/synthDTI/models'
+top_level_training_dir = '/autofs/space/nicc_003/users/olchanyi/data/CRSEG_unet_training_data/7ROI_training_dataset'
+top_level_model_dir = '/autofs/space/nicc_003/users/olchanyi/models/CRSEG_unet_models'
 
 ## Run specific parameters that will change for ablations
 # Name of the model - link to ablation spreadsheet
-model_name = 'joint_thalamus_test_Jan'
+model_name = 'joint_brainstem_model_v1'
 # Fraction of DTI voxels to randomised. Between 0 and 1. Set to 0 to turn off speckle. 1 in 10k sounds right
 speckle_frac_selected=1e-4
 # Flag whether we'll individually rotate the DTI vectors
@@ -19,21 +19,21 @@ flag_deformation = True
 deformation_max = 5.0
 # How to encode the segmentations into a onehot
 # single (pick an example), combined (average), mode (majority vote), grouped (majority vote on group then average)
-seg_selection='grouped'
+seg_selection='single'
 # Dice version - "individual" do standard label-wise Dice, "grouped" also add contribution of groups and whole thalamus
-dice_version="grouped"
+dice_version="individual"
 
 
 ## Paths
 # Path with training data
 training_dir = os.path.join(top_level_training_dir,'train/')
 # Path with Validation data, set to none if not doing online validation
-#validation_dir = os.path.join(top_level_training_dir,'validate/')
-validation_dir = None
+validation_dir = os.path.join(top_level_training_dir,'validate/')
 # NPY file with list of labels
-path_label_list = os.path.join(top_level_training_dir,'proc_training_data_label_list_reduced.npy')
+path_label_list = os.path.join(top_level_training_dir,'brainstem_wm_label_list.npy')
 # NPY file with segmentation of onehot channels into groups for mixed Dice etc.
-path_group_list = os.path.join(top_level_training_dir,'proc_training_group_seg_reduced.npy')
+#path_group_list = os.path.join(top_level_training_dir,'proc_training_group_seg_reduced.npy')
+path_group_list = None
 # Directory where model files will be written
 model_dir = os.path.join(top_level_model_dir,model_name)
 
@@ -63,7 +63,7 @@ diffusion_resolution = 1.25
 # Batch size being volumes, it will probably be always 1...
 batchsize = 1
 # Size to which inputs will be cropped (use None to use whole volume)
-crop_size = 128
+crop_size = None
 # Number of levels in Unet (5 is good)
 n_levels = 5
 # Number of convolution + nonlinearity blocks per level (2 is good)
@@ -78,7 +78,7 @@ feat_multiplier = 2
 dropout = 0
 # Type of activation / nonlinearity (elu is good)
 activation = 'elu'
-# Learning rate: 1e-3 is too muchn, 1e-5 is generally too little, so 1e-4 is good
+# Learning rate: 1e-3 is too much, 1e-5 is generally too little, so 1e-4 is good
 lr = 1e-4
 # Decay in learning rate, if you want to schedule. I normally leave it alone (ie set it to 0)
 lr_decay = 0
@@ -130,5 +130,3 @@ train(training_dir,
              checkpoint=checkpoint,
              dice_version=dice_version,
              checkpoint_frequency=checkpoint_frequency)
-
-

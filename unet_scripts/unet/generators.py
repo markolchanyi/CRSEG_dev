@@ -6,8 +6,8 @@ import torch
 from scipy.interpolate import RegularGridInterpolator as rgi
 from scipy.ndimage import gaussian_filter as gauss_filt
 
-from joint_diffusion_structural_seg import dtiutils
-from joint_diffusion_structural_seg import utils
+from unet import dtiutils
+from unet import utils
 
 
 # This is the first generator I tried, deforming the FA linearly and the direction with nearest neighbors
@@ -27,12 +27,12 @@ def image_seg_generator(training_dir,
                         diffusion_resolution=None):
 
     # Read directory to get list of training cases
-    t1_list = glob.glob(training_dir + '/*.t1.nii.gz')
-    n_training = len(t1_list)
+    lowb_list = glob.glob(training_dir + '/dmri/lowb.nii.gz')
+    n_training = len(lowb_list)
     print('Found %d cases for training' % n_training)
 
     # Get size from first volume
-    aux, aff, _ = utils.load_volume(t1_list[0], im_only=False)
+    aux, aff, _ = utils.load_volume(lowb_list[0], im_only=False)
     t1_resolution = np.sum(aff,axis=0)[:-1]
     nx, ny, nz = aux.shape
     if crop_size is None:
@@ -72,11 +72,12 @@ def image_seg_generator(training_dir,
         for index in indices:
 
             # read images
-            t1_file = t1_list[index]
-            prefix = t1_list[index][:-10]
-            fa_file = prefix + '.fa.nii.gz'
-            v1_file = prefix + '.v1.nii.gz'
-            seg_file = prefix + '.seg.nii.gz'
+            t1_file = lowb_list[index]
+            prefix = lowb_list[index][:-12]
+            high_prefix = lowb_list[index][:-16]
+            fa_file = prefix + 'FA.nii.gz'
+            v1_file = prefix + 'tracks.nii.gz'
+            seg_file = high_prefix + 'seg.nii.gz'
 
             t1, aff, _ = utils.load_volume(t1_file, im_only=False)
             fa = utils.load_volume(fa_file)
@@ -281,13 +282,13 @@ def image_seg_generator_rgb(training_dir,
     randomize_speckle = speckle_frac_selected>0
 
     # Read directory to get list of training cases
-    t1_list = glob.glob(training_dir + '/subject*/*.t1.nii.gz')
-    n_training = len(t1_list)
+    lowb_list = glob.glob(training_dir + '/subject*/dmri/lowb.nii.gz')
+    n_training = len(lowb_list)
     print('Found %d cases for training' % n_training)
 
     # Get size from first volume
-    aux, aff, _ = utils.load_volume(t1_list[0], im_only=False)
-    t1_resolution = np.sum(aff,axis=0)[:-1]
+    aux, aff, _ = utils.load_volume(lowb_list[0], im_only=False)
+    lowb_resolution = np.sum(aff,axis=0)[:-1]
     nx, ny, nz = aux.shape
     if crop_size is None:
         crop_size = aux.shape
@@ -336,8 +337,8 @@ def image_seg_generator_rgb(training_dir,
 
             # read images
             # TODO: this may go wrong with a larger batchsize
-            t1_file = t1_list[index]
-            subject_path = os.path.split(t1_file)[0]
+            lowb_file = lowb_list[index]
+            subject_path = os.path.split(lowb_file)[0]
 
             seg_list = glob.glob(subject_path + '/segs/*nii.gz')
 
@@ -356,17 +357,17 @@ def image_seg_generator_rgb(training_dir,
                     seg = torch.concat((seg, torch.tensor(np_seg[..., None], device='cpu')), dim=3)
 
 
-            fa_list = glob.glob(subject_path + '/dmri/*_fa.nii.gz')
+            fa_list = glob.glob(subject_path + '/dmri/FA.nii.gz')
             fa_index = np.random.randint(len(fa_list))
 
             fa_file = fa_list[fa_index]
             prefix = fa_file[:-10]
-            v1_file = prefix + '_v1.nii.gz'
+            v1_file = glob.glob(subject_path + '/dmri/tracts.nii.gz')
 
-            t1, aff, _ = utils.load_volume(t1_file, im_only=False)
+            lowb, aff, _ = utils.load_volume(lowb_file, im_only=False)
             fa = utils.load_volume(fa_file)
             v1 = utils.load_volume(v1_file)
-            t1 = torch.tensor(t1, device='cpu')
+            lowb = torch.tensor(t1, device='cpu')
             aff = torch.tensor(aff, device='cpu')
             fa = torch.tensor(fa, device='cpu')
             v1 = torch.tensor(v1, device='cpu')
@@ -423,10 +424,10 @@ def image_seg_generator_rgb(training_dir,
                 # reoriented dti in rgb space using preservation of principle direction
                 dti_def, xx2, yy2, zz2 = dtiutils.randomly_resample_dti_PPD(v1, fa, R, s, xc, yc, zc, cx, cy, cz, crop_size,
                                                                         cropx, cropy, cropz,flag_deformation,
-                                                                        deformation_max, t1_resolution,
+                                                                        deformation_max, lowb_resolution,
                                                                         nonlinear_rotation, rotation_bounds)
 
-                t1_def = fast_3D_interp_torch(t1, xx2, yy2, zz2, 'linear')
+                lowb_def = fast_3D_interp_torch(lowb, xx2, yy2, zz2, 'linear')
 
             # interpolate the segmentation
             seg_def = fast_3D_interp_torch(seg, xx2, yy2, zz2, 'nearest')
@@ -440,18 +441,18 @@ def image_seg_generator_rgb(training_dir,
 
                 # Random resolution for t1: between 0.7 and 1.3 mm in each axis (but not too far from each other)
                 aux = 0.7 + 0.6 * np.random.rand(1)
-                batch_resolution_t1 = aux + 0.05 * np.random.randn(3)
-                batch_resolution_t1[batch_resolution_diffusion < 0.6] = 0.6 # let's be realistic :-)
+                batch_resolution_lowb = aux + 0.05 * np.random.randn(3)
+                batch_resolution_lowb[batch_resolution_diffusion < 0.6] = 0.6 # let's be realistic :-)
 
                 # The theoretical blurring sigma to blur the resolution depends on the fraction by which we want to
                 # divide the power at the cutoff frequency. I use [3, 20] which translates into multiplying the ratio
                 # of resolutions by [0.35,0.95]
                 fraction = 0.35 + 0.6 * np.random.rand(1)
 
-                ratio_t1 = batch_resolution_t1 / t1_resolution
-                ratio_t1[ratio_t1 < 1] = 1
-                sigmas_t1 = fraction * ratio_t1
-                sigmas_t1[ratio_t1 == 1] = 0 # Don't blur if we're not really going down in resolution
+                ratio_lowb = batch_resolution_lowb / lowb_resolution
+                ratio_lowb[ratio_lowb < 1] = 1
+                sigmas_lowb = fraction * ratio_lowb
+                sigmas_lowb[ratio_lowb == 1] = 0 # Don't blur if we're not really going down in resolution
 
                 ratio_diffusion = batch_resolution_diffusion / diffusion_resolution
                 ratio_diffusion[ratio_diffusion < 1] = 1
@@ -459,19 +460,19 @@ def image_seg_generator_rgb(training_dir,
                 sigmas_diffusion[ratio_diffusion == 1] = 0 # Don't blur if we're not really going down in resolution
 
                 # Low-pass filtering to blur data!
-                t1_def = torch.tensor(gauss_filt(t1_def, sigmas_t1, truncate=3.0), device='cpu')
+                lowb_def = torch.tensor(gauss_filt(lowb_def, sigmas_lowb, truncate=3.0), device='cpu')
                 for c in range(3):
                     dti_def[:,:,:,c] = torch.tensor(gauss_filt(dti_def[:,:,:,c], sigmas_diffusion, truncate=3.0), device='cpu')
 
                 # Subsample
-                t1_def = myzoom_torch(t1_def, 1 / ratio_t1)
+                lowb_def = myzoom_torch(lowb_def, 1 / ratio_lowb)
                 dti_def = myzoom_torch(dti_def, 1 / ratio_diffusion)
 
 
 
             # Augment intensities t1 and fa
             # Note that if you are downsampling, augmentation happens here at low resolution (as will happen at test time)
-            t1_def = utils.augment_t1(t1_def, gamma_std, contrast_std, brightness_std, max_noise_std)
+            lowb_def = utils.augment_t1(lowb_def, gamma_std, contrast_std, brightness_std, max_noise_std)
 
             if randomize_speckle:
                 dti_def, fa_def = speckle_dti_and_fa(dti_def, gamma_std, max_noise_std_fa,
@@ -484,8 +485,8 @@ def image_seg_generator_rgb(training_dir,
                 # TODO: it's crucial to upsample the same way as we do when predicting...
 
                 # Using ratio_t1 and ratio_diffusion may give a size that is off 1 pixel due to rounding
-                ratio = (torch.tensor(seg_def.shape[:3], device='cpu') / torch.tensor(t1_def.shape, device='cpu')).detach().numpy()
-                t1_def = myzoom_torch(t1_def, ratio)
+                ratio = (torch.tensor(seg_def.shape[:3], device='cpu') / torch.tensor(lowb_def.shape, device='cpu')).detach().numpy()
+                lowb_def = myzoom_torch(lowb_def, ratio)
                 ratio = (torch.tensor(seg_def.shape[:3], device='cpu') / torch.tensor(dti_def.shape[:-1], device='cpu')).detach().numpy()
                 dti_def = myzoom_torch(dti_def, ratio)
                 fa_def = torch.sqrt(torch.sum(dti_def * dti_def, dim=-1))
@@ -501,7 +502,7 @@ def image_seg_generator_rgb(training_dir,
             if randomize_flip:
                 test_flip = torch.rand(1)[0] > 0.5
                 if test_flip:
-                    t1_def = torch.flip(t1_def, [0])
+                    lowb_def = torch.flip(lowb_def, [0])
                     fa_def = torch.flip(fa_def, [0])
                     dti_def = torch.flip(dti_def, [0])
 
@@ -528,7 +529,7 @@ def image_seg_generator_rgb(training_dir,
             # utils.save_volume(dti_def / (fa_def[..., None] + 1e-6), aff, None, '/tmp/v1_def.mgz')
             # utils.save_volume(onehot, aff, None, '/tmp/onehot_def.mgz')
 
-            list_images.append((torch.concat((t1_def[..., None], fa_def[..., None], dti_def), axis=-1)[None, ...]).detach().numpy())
+            list_images.append((torch.concat((lowb_def[..., None], fa_def[..., None], dti_def), axis=-1)[None, ...]).detach().numpy())
             list_label_maps.append((onehot[None, ...]).detach().numpy())
 
             # count += 1
@@ -566,12 +567,12 @@ def image_seg_generator_rgb_validation(training_dir,
         'seg_selection must be single or combined'
 
     # Read directory to get list of training cases
-    t1_list = sorted(glob.glob(training_dir + '/subject*/*.t1.nii.gz'))
-    n_training = len(t1_list)
+    lowb_list = sorted(glob.glob(training_dir + '/subject*/dmri/lowb.nii.gz'))
+    n_training = len(lowb_list)
     print('Found %d cases for validation' % n_training)
 
     # Get size from first volume
-    aux, aff, _ = utils.load_volume(t1_list[0], im_only=False)
+    aux, aff, _ = utils.load_volume(lowb_list[0], im_only=False)
     nx, ny, nz = aux.shape
     if crop_size is None:
         crop_size = aux.shape
@@ -605,7 +606,7 @@ def image_seg_generator_rgb_validation(training_dir,
 
             # read images
             # TODO: this may go wrong with a larger batchsize
-            t1_file = t1_list[index]
+            t1_file = lowb_list[index]
             subject_path = os.path.split(t1_file)[0]
 
             seg_list = sorted(glob.glob(subject_path + '/segs/*nii.gz'))
@@ -625,11 +626,11 @@ def image_seg_generator_rgb_validation(training_dir,
                     seg = torch.concat((seg, torch.tensor(np_seg[..., None], device='cpu')), dim=3)
 
 
-            fa_list = sorted(glob.glob(subject_path + '/dmri/*_fa.nii.gz'))
+            fa_list = sorted(glob.glob(subject_path + '/dmri/FA.nii.gz'))
 
             fa_file = fa_list[0]
             prefix = fa_file[:-10]
-            v1_file = prefix + '_v1.nii.gz'
+            v1_file = glob.glob(subject_path + '/dmri/tracts.nii.gz')
 
             t1, aff, _ = utils.load_volume(t1_file, im_only=False)
             fa = utils.load_volume(fa_file)
@@ -980,4 +981,3 @@ def interp_onehot(label_list, onehot_in, thal_mask, xx2, yy2, zz2, cx, cy, cz):
     onehot_out[i1:i2, j1:j2, k1:k2, :] = torch.permute(onehot_interp[0, ...], (1, 2, 3, 0))
 
     return onehot_out
-

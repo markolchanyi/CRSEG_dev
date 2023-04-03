@@ -6,9 +6,9 @@ import numpy as np
 import tensorflow as tf
 from keras import models as KM
 from keras.optimizers import Adam
-from joint_diffusion_structural_seg import metrics
-from joint_diffusion_structural_seg import models
-from joint_diffusion_structural_seg.generators import image_seg_generator, image_seg_generator_rgb, \
+from unet import metrics
+from unet import models
+from unet.generators import image_seg_generator, image_seg_generator_rgb, \
     image_seg_generator_rgb_validation
 
 
@@ -275,5 +275,3 @@ def train_model(model,
                             callbacks=callbacks,
                             initial_epoch=init_epoch,
                             use_multiprocessing=True)
-
-
