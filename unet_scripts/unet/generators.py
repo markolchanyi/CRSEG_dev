@@ -341,6 +341,7 @@ def image_seg_generator_rgb(training_dir,
             subject_path = os.path.split(os.path.split(lowb_file)[0])[0]
 
             seg_list = glob.glob(subject_path + '/segs/*nii.gz')
+
             # either pick a single seg to train towards or import them all and average the onehot
             if seg_selection == 'single':
                 seg_index = np.random.randint(len(seg_list))
@@ -547,7 +548,7 @@ def image_seg_generator_rgb(training_dir,
 
 
 
-def image_seg_generator_rgb_validation(training_dir,
+def image_seg_generator_rgb_validation(validation_dir,
                             path_label_list,
                             batchsize=1,
                             scaling_bounds=0.15,
@@ -568,12 +569,13 @@ def image_seg_generator_rgb_validation(training_dir,
         'seg_selection must be single or combined'
 
     if not seg_selection == 'grouped':
+        print("No group mat available...setting to None")
         grp_mat = None
 
     # Read directory to get list of training cases
-    lowb_list = sorted(glob.glob(training_dir + '/subject*/dmri/lowb.nii.gz'))
-    n_training = len(lowb_list)
-    print('Found %d cases for validation' % n_training)
+    lowb_list = glob.glob(validation_dir + '/subject*/dmri/lowb.nii.gz')
+    n_validation = len(lowb_list)
+    print('Found %d cases for validation' % n_validation)
 
     # Get size from first volume
     aux, aff, _ = utils.load_volume(lowb_list[0], im_only=False)
@@ -592,13 +594,13 @@ def image_seg_generator_rgb_validation(training_dir,
     # Generate!
     count = 0
     while True:
-
         # randomly pick as many images as batchsize
         indices = list(range(count, count+batchsize))
         count += batchsize
 
         if count >= n_training:
             count = 0
+
         # ToDo handle overflow within the indices when batchsize does not divide n_training
         # mostly won't affect us as we're using batchsize 1
 
@@ -610,10 +612,11 @@ def image_seg_generator_rgb_validation(training_dir,
 
             # read images
             # TODO: this may go wrong with a larger batchsize
+
             lowb_file = lowb_list[index]
             subject_path = os.path.split(os.path.split(lowb_file)[0])[0]
 
-            seg_list = sorted(glob.glob(subject_path + '/segs/*nii.gz'))
+            seg_list = glob.glob(subject_path + '/segs/*nii.gz')
 
             # either pick a single seg to train towards or import them all and average the onehot
             if seg_selection == 'single':
@@ -630,8 +633,10 @@ def image_seg_generator_rgb_validation(training_dir,
                     seg = torch.concat((seg, torch.tensor(np_seg[..., None], device='cpu')), dim=3)
 
 
-            fa_list = sorted(glob.glob(subject_path + '/dmri/FA.nii.gz'))
+            fa_list = glob.glob(subject_path + '/dmri/FA.nii.gz')
+            fa_index = np.random.randint(len(fa_list))
 
+            #fa_file = fa_list[fa_index]
             fa_file = fa_list[0]
             prefix = fa_file[:-10]
             v1_file = glob.glob(subject_path + '/dmri/tracts.nii.gz')[0]
@@ -667,21 +672,7 @@ def image_seg_generator_rgb_validation(training_dir,
 
             dti_crop = np.abs(v1_crop * fa_crop[..., np.newaxis])
 
-            onehot = encode_onehot(mapping, seg_crop, label_list, seg_selection)
-
-            # If you want to save to disk and open with Freeview during debugging
-            # from joint_diffusion_structural_seg.utils import save_volume
-            # utils.save_volume(t1, aff, None, '/tmp/t1.mgz')
-            # utils.save_volume(t1_crop, aff, None, '/tmp/t1_crop.mgz')
-            # utils.save_volume(fa, aff, None, '/tmp/fa.mgz')
-            # utils.save_volume(fa_crop, aff, None, '/tmp/fa_crop.mgz')
-            # utils.save_volume(seg, aff, None, '/tmp/seg.mgz')
-            # utils.save_volume(seg_crop, aff, None, '/tmp/seg_crop.mgz')
-            # utils.save_volume(v1, aff, None, '/tmp/v1.mgz')
-            # dti = np.abs(v1 * fa[..., np.newaxis])
-            # utils.save_volume(dti * 255, aff, None, '/tmp/dti.mgz')
-            # utils.save_volume(dti_def * 255, aff, None, '/tmp/dti_def.mgz')
-            # utils.save_volume(onehot, aff, None, '/tmp/onehot_crop.mgz')
+            onehot = encode_onehot(mapping, seg_crop, label_list, seg_selection, grp_mat)
 
             list_images.append((torch.concat((lowb_crop[..., None], fa_crop[..., None], dti_crop), dim=-1)[None, ...]).detach().numpy())
             list_label_maps.append((onehot[None, ...]).detach().numpy())
