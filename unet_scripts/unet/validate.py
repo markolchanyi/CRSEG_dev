@@ -5,11 +5,11 @@ import tensorflow as tf
 import torch
 import glob
 
-from joint_diffusion_structural_seg import utils
-from joint_diffusion_structural_seg import models
-from joint_diffusion_structural_seg import metrics
+import utils
+import models
+import metrics
 
-from joint_diffusion_structural_seg.generators import encode_onehot
+from generators import encode_onehot
 
 from tensorflow.keras.utils import Progbar
 

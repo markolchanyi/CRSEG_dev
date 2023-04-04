@@ -6,9 +6,9 @@ import numpy as np
 import tensorflow as tf
 from keras import models as KM
 from keras.optimizers import Adam
-from unet import metrics
-from unet import models
-from unet.generators import image_seg_generator, image_seg_generator_rgb, \
+import metrics
+import models
+from generators import image_seg_generator, image_seg_generator_rgb, \
     image_seg_generator_rgb_validation
 
 

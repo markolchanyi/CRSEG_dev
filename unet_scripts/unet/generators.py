@@ -6,8 +6,8 @@ import torch
 from scipy.interpolate import RegularGridInterpolator as rgi
 from scipy.ndimage import gaussian_filter as gauss_filt
 
-from unet import dtiutils
-from unet import utils
+import dtiutils
+import utils
 
 
 # This is the first generator I tried, deforming the FA linearly and the direction with nearest neighbors
@@ -338,10 +338,9 @@ def image_seg_generator_rgb(training_dir,
             # read images
             # TODO: this may go wrong with a larger batchsize
             lowb_file = lowb_list[index]
-            subject_path = os.path.split(lowb_file)[0]
+            subject_path = os.path.split(os.path.split(lowb_file)[0])[0]
 
             seg_list = glob.glob(subject_path + '/segs/*nii.gz')
-
             # either pick a single seg to train towards or import them all and average the onehot
             if seg_selection == 'single':
                 seg_index = np.random.randint(len(seg_list))
@@ -360,14 +359,15 @@ def image_seg_generator_rgb(training_dir,
             fa_list = glob.glob(subject_path + '/dmri/FA.nii.gz')
             fa_index = np.random.randint(len(fa_list))
 
-            fa_file = fa_list[fa_index]
+            #fa_file = fa_list[fa_index]
+            fa_file = fa_list[0]
             prefix = fa_file[:-10]
-            v1_file = glob.glob(subject_path + '/dmri/tracts.nii.gz')
+            v1_file = glob.glob(subject_path + '/dmri/tracts.nii.gz')[0]
 
             lowb, aff, _ = utils.load_volume(lowb_file, im_only=False)
             fa = utils.load_volume(fa_file)
             v1 = utils.load_volume(v1_file)
-            lowb = torch.tensor(t1, device='cpu')
+            lowb = torch.tensor(lowb, device='cpu')
             aff = torch.tensor(aff, device='cpu')
             fa = torch.tensor(fa, device='cpu')
             v1 = torch.tensor(v1, device='cpu')
@@ -413,7 +413,7 @@ def image_seg_generator_rgb(training_dir,
 
                 combo = torch.concat((t1[..., None], dti), dim=-1)
                 combo_def = fast_3D_interp_torch(combo, xx2, yy2, zz2, 'linear')
-                t1_def = combo_def[:, :, :, 0]
+                lowb_def = combo_def[:, :, :, 0]
                 dti_def = combo_def[:, :, :, 1:]
 
             else:
@@ -562,9 +562,13 @@ def image_seg_generator_rgb_validation(training_dir,
                             diffusion_resolution=None,
                             seg_selection='combined'):
 
+    print("STARTING VALIDATION!!!!")
     # check type of one-hot encoding
     assert (seg_selection == 'single') or (seg_selection == 'combined'),\
         'seg_selection must be single or combined'
+
+    if not seg_selection == 'grouped':
+        grp_mat = None
 
     # Read directory to get list of training cases
     lowb_list = sorted(glob.glob(training_dir + '/subject*/dmri/lowb.nii.gz'))
@@ -606,8 +610,8 @@ def image_seg_generator_rgb_validation(training_dir,
 
             # read images
             # TODO: this may go wrong with a larger batchsize
-            t1_file = lowb_list[index]
-            subject_path = os.path.split(t1_file)[0]
+            lowb_file = lowb_list[index]
+            subject_path = os.path.split(os.path.split(lowb_file)[0])[0]
 
             seg_list = sorted(glob.glob(subject_path + '/segs/*nii.gz'))
 
@@ -630,12 +634,12 @@ def image_seg_generator_rgb_validation(training_dir,
 
             fa_file = fa_list[0]
             prefix = fa_file[:-10]
-            v1_file = glob.glob(subject_path + '/dmri/tracts.nii.gz')
+            v1_file = glob.glob(subject_path + '/dmri/tracts.nii.gz')[0]
 
-            t1, aff, _ = utils.load_volume(t1_file, im_only=False)
+            lowb, aff, _ = utils.load_volume(lowb_file, im_only=False)
             fa = utils.load_volume(fa_file)
             v1 = utils.load_volume(v1_file)
-            t1 = torch.tensor(t1, device='cpu')
+            lowb = torch.tensor(lowb, device='cpu')
             aff = torch.tensor(aff, device='cpu')
             fa = torch.tensor(fa, device='cpu')
             v1 = torch.tensor(v1, device='cpu')
@@ -649,7 +653,7 @@ def image_seg_generator_rgb_validation(training_dir,
                      cropy:cropy+crop_size[1],
                      cropz:cropz+crop_size[2], :]
 
-            t1_crop = t1[cropx:cropx+crop_size[0],
+            lowb_crop = lowb[cropx:cropx+crop_size[0],
                      cropy:cropy+crop_size[1],
                      cropz:cropz+crop_size[2]]
 
@@ -679,7 +683,7 @@ def image_seg_generator_rgb_validation(training_dir,
             # utils.save_volume(dti_def * 255, aff, None, '/tmp/dti_def.mgz')
             # utils.save_volume(onehot, aff, None, '/tmp/onehot_crop.mgz')
 
-            list_images.append((torch.concat((t1_crop[..., None], fa_crop[..., None], dti_crop), dim=-1)[None, ...]).detach().numpy())
+            list_images.append((torch.concat((lowb_crop[..., None], fa_crop[..., None], dti_crop), dim=-1)[None, ...]).detach().numpy())
             list_label_maps.append((onehot[None, ...]).detach().numpy())
 
 

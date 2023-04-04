@@ -1,6 +1,7 @@
+import sys
 import os
-
-from unet.training import train
+sys.path.append('/autofs/space/nicc_003/users/olchanyi/CRSEG_dev/unet_scripts/unet')
+from training import train
 
 ## machine specific directories
 top_level_training_dir = '/autofs/space/nicc_003/users/olchanyi/data/CRSEG_unet_training_data/7ROI_training_dataset'
@@ -12,7 +13,7 @@ model_name = 'joint_brainstem_model_v1'
 # Fraction of DTI voxels to randomised. Between 0 and 1. Set to 0 to turn off speckle. 1 in 10k sounds right
 speckle_frac_selected=1e-4
 # Flag whether we'll individually rotate the DTI vectors
-nonlinear_rotation=True
+nonlinear_rotation=False
 # Will we deform the images with piecewise linear displacement fields (this includes re-orientation)
 flag_deformation = True
 # Maximimum piecewise linear displacement in mm (excluding rotation + scaling)
@@ -28,7 +29,8 @@ dice_version="individual"
 # Path with training data
 training_dir = os.path.join(top_level_training_dir,'train/')
 # Path with Validation data, set to none if not doing online validation
-validation_dir = os.path.join(top_level_training_dir,'validate/')
+#validation_dir = os.path.join(top_level_training_dir,'validate/')
+validation_dir = None
 # NPY file with list of labels
 path_label_list = os.path.join(top_level_training_dir,'brainstem_wm_label_list.npy')
 # NPY file with segmentation of onehot channels into groups for mixed Dice etc.
@@ -83,11 +85,11 @@ lr = 1e-4
 # Decay in learning rate, if you want to schedule. I normally leave it alone (ie set it to 0)
 lr_decay = 0
 # Number of "pretraining" epochs where we use the L2 norm on the activations rather than Dice in the softmax (5-10)
-wl2_epochs = 5
+wl2_epochs = 1
 # Number of epocs with Dice
-dice_epochs = 200
+dice_epochs = 1000
 # Steps per epoch (1000 is good)
-steps_per_epoch = 1000
+steps_per_epoch = 10
 # Checkpoint file from which training will start (use None to start from scratch)
 checkpoint = None
 # frequency of saving model checkpoints (Dice iterations only)
