@@ -16,8 +16,8 @@ training_dir = os.path.join(output_dir,"train")
 validation_dir = os.path.join(output_dir,"validate")
 orig_ROI_list = ["ROI00000","ROI00001","ROI00002","ROI00003","ROI00004","ROI00005","ROI00006"]
 split_roi = [True,True,True,True,True,True,False] # is this a L/R ROI or not?
-right_start_label_num = 8103  # copying thalamic LUT labels for now since FS LUT for these tracts dont exist
-left_start_label_num = 8203
+right_start_label_num = 1001  # copying thalamic LUT labels for now since FS LUT for these tracts dont exist
+left_start_label_num = 2001
 
 ## between 0 (all validate) and 1 (all train)
 training_ratio = 0.8
@@ -36,6 +36,8 @@ label_array[0,] = 0
 for ind, roi in enumerate(orig_ROI_list):
         label_array[ind+1,] = right_start_label_num + ind
         label_array[ind+len(orig_ROI_list)+1,] = left_start_label_num + ind
+
+print("label array is: ", label_array)
 
 np.save(os.path.join(output_dir,"brainstem_wm_label_list.npy"),label_array)
 
@@ -102,6 +104,7 @@ for subject_name in data_list:
 
                 output_img = nib.Nifti1Image(output_vol, vol.affine, vol.header)
                 nib.save(output_img, os.path.join(output_subject_dir,"segs","seg.nii.gz"))
+                os.system("mri_convert " + os.path.join(output_subject_dir,"segs","seg.nii.gz") + " " + os.path.join(output_subject_dir,"segs","seg.nii.gz") + " -rl " + os.path.join(data_dir,"template","ROI_64_template.nii.gz") + " -rt nearest -odt float")
 
                 b0_file = os.path.join(subject_dir, 'T1w/Diffusion', 'lowb.nii')
                 fa_file = os.path.join(subject_dir, 'T1w/Diffusion/dmri', 'dtifit.1K_FA.nii.gz')
@@ -112,14 +115,51 @@ for subject_name in data_list:
                 os.system("cp " + b0_file + " " + os.path.join(output_subject_dir,"temp"))
                 os.system("cp " + fa_file + " " + os.path.join(output_subject_dir,"temp"))
 
-                os.system("mri_convert " + os.path.join(output_subject_dir,"temp","lowb.nii") + " " + os.path.join(output_subject_dir,"dmri","lowb.nii.gz") + " -rl " + os.path.join(output_subject_dir,"temp",roi_nifti) + " -odt float")
-                os.system("mri_convert " + os.path.join(output_subject_dir,"temp","dtifit.1K_FA.nii.gz") + " " + os.path.join(output_subject_dir,"dmri","FA.nii.gz") + " -rl " + os.path.join(output_subject_dir,"temp",roi_nifti) + " -odt float")
+                os.system("mri_convert " + os.path.join(output_subject_dir,"temp","lowb.nii") + " " + os.path.join(output_subject_dir,"temp","lowb.nii.gz") + " -rl " + os.path.join(data_dir,"template","ROI_64_template.nii.gz") + " -odt float")
+                os.system("mri_convert " + os.path.join(output_subject_dir,"temp","dtifit.1K_FA.nii.gz") + " " + os.path.join(output_subject_dir,"temp","FA.nii.gz") + " -rl " + os.path.join(data_dir,"template","ROI_64_template.nii.gz") + " -odt float")
 
-                os.system("mrgrid " + track_file + " crop -uniform 3 " + os.path.join(output_subject_dir,"dmri","tracts.nii.gz") + " -force")
+                os.system("mrgrid " + track_file + " crop -uniform 3 " + os.path.join(output_subject_dir,"temp","tracts.nii.gz") + " -force")
+                os.system("mri_convert " + os.path.join(output_subject_dir,"temp","tracts.nii.gz") + " " + os.path.join(output_subject_dir,"temp","tracts.nii.gz") + " -rl " + os.path.join(data_dir,"template","ROI_64_template_4D.nii.gz") + " -odt float")
+
+
+                ####
+                #### normalize all volumes!! (0 mean unitary variance)
+                ####
+                vol_tracts = nib.load(os.path.join(output_subject_dir,"temp","tracts.nii.gz"))
+                vol_tracts_np = vol_tracts.get_fdata()
+
+                vol_lowb = nib.load(os.path.join(output_subject_dir,"temp","lowb.nii.gz"))
+                vol_lowb_np = vol_lowb.get_fdata()
+
+                vol_fa = nib.load(os.path.join(output_subject_dir,"temp","FA.nii.gz"))
+                vol_fa_np = vol_fa.get_fdata()
+
+                ### rescaling
+                vol_tracts_np_normalized = (vol_tracts_np - vol_tracts_np.mean()) / vol_tracts_np.std()
+                vol_lowb_np_normalized = (vol_lowb_np - vol_lowb_np.mean()) / vol_lowb_np.std()
+                vol_fa_np_normalized = (vol_fa_np - vol_fa_np.mean()) / vol_fa_np.std()
+
+                print("TRACTS MEAN IS: ", np.mean(vol_tracts_np_normalized))
+                print("TRACTS VAR IS: ", np.var(vol_tracts_np_normalized))
+                print("LOWB MEAN IS: ", np.mean(vol_lowb_np_normalized))
+                print("LOWB VAR IS: ", np.var(vol_lowb_np_normalized))
+                print("FA MEAN IS: ", np.mean(vol_fa_np_normalized))
+                print("FA VAR IS: ", np.var(vol_fa_np_normalized))
+
+                output_img_tracts = nib.Nifti1Image(vol_tracts_np_normalized, vol_tracts.affine, vol_tracts.header)
+                nib.save(output_img_tracts, os.path.join(output_subject_dir,"dmri","tracts.nii.gz"))
+
+                output_img_lowb = nib.Nifti1Image(vol_lowb_np_normalized, vol_lowb.affine, vol_lowb.header)
+                nib.save(output_img_lowb, os.path.join(output_subject_dir,"dmri","lowb.nii.gz"))
+
+                output_img_fa = nib.Nifti1Image(vol_fa_np_normalized, vol_tracts.affine, vol_tracts.header)
+                nib.save(output_img_fa, os.path.join(output_subject_dir,"dmri","FA.nii.gz"))
 
                 shutil.rmtree(os.path.join(output_subject_dir,"temp"))
                 #os.system("mrconvert " + track_file + " " + os.path.join(output_subject_dir,"dmri","tracts_concatenated_1mm_cropped.nii.gz"))
                 #os.system("cp " + aseg_file + " " + os.path.join(output_subject_dir,"segs",'subject_' + subject_name + '_1k_DSWbeta.nii.gz'))
+
+
 print("num training: ", train_counter)
 print("nun validation: ", val_counter)
 print("FINISHED")

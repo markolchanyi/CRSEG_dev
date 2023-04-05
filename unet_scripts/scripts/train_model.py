@@ -29,8 +29,8 @@ dice_version="individual"
 # Path with training data
 training_dir = os.path.join(top_level_training_dir,'train/')
 # Path with Validation data, set to none if not doing online validation
-#validation_dir = os.path.join(top_level_training_dir,'validate/')
-validation_dir = None
+validation_dir = os.path.join(top_level_training_dir,'validate/')
+#validation_dir = None
 # NPY file with list of labels
 path_label_list = os.path.join(top_level_training_dir,'brainstem_wm_label_list.npy')
 # NPY file with segmentation of onehot channels into groups for mixed Dice etc.
