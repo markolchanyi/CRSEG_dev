@@ -3,16 +3,15 @@ import os
 import numpy as np
 from scipy import ndimage
 
-import joint_diffusion_structural_seg.utils as utils
-from joint_diffusion_structural_seg import models
-from skimage.measure import label
+import utils as utils
+import models
 
 def predict(subject_list,
                 fs_subject_dir,
                 dataset,
                 path_label_list,
                 model_file,
-                resolution_model_file=0.7,
+                resolution_model_file=1.0,
                 generator_mode='rgb',
                 unet_feat_count=24,
                 n_levels=5,
@@ -20,7 +19,7 @@ def predict(subject_list,
                 feat_multiplier=2,
                 nb_conv_per_level=2,
                 activation='elu',
-                bounding_box_width=128,
+                bounding_box_width=64,
                 aff_ref=np.eye(4),
                 shell_flag=None):
 
@@ -79,10 +78,10 @@ def predict(subject_list,
             v1_file = os.path.join(fs_subject_dir, subject, 'dmri', 'dtifit.1K_V1.nii.gz')
 
         if dataset == 'template':
-            t1_file = os.path.join(fs_subject_dir, subject, 'mri', 'norm.mgz')
-            aseg_file = os.path.join(fs_subject_dir, subject, 'mri', 'aseg.mgz')
-            fa_file = os.path.join(fs_subject_dir, subject, 'dmri', 'dtifit.1+2+3K_FA.nii.gz')
-            v1_file = os.path.join(fs_subject_dir, subject, 'dmri', 'dtifit.1+2+3K_V1.nii.gz')
+            t1_file = os.path.join(fs_subject_dir, subject, 'dmri', 'lowb.nii.gz')
+            aseg_file = os.path.join(fs_subject_dir, subject, 'dmri', 'seg.mgz')
+            fa_file = os.path.join(fs_subject_dir, subject, 'dmri', 'FA.nii.gz')
+            v1_file = os.path.join(fs_subject_dir, subject, 'dmri', 'tracts.nii.gz')
 
         if dataset == 'validate':
             t1_file = os.path.join(fs_subject_dir, subject, subject[:-3] + '.t1.nii.gz')
@@ -102,6 +101,7 @@ def predict(subject_list,
 
         # Read in and reorient T1
         t1, aff, _ = utils.load_volume(t1_file, im_only=False)
+        print("SIZE OF T1 IS: ", t1.shape)
         t1, aff2 = utils.align_volume_to_ref(t1, aff, aff_ref=aff_ref, return_aff=True, n_dims=3)
 
         # If the resolution is not the one the model expected, we need to upsample!
@@ -121,17 +121,17 @@ def predict(subject_list,
         t1[t1 > 1] = 1
 
         # Find the center of the thalamus and crop a volumes around it
-        th_mask = (aseg == 10) | (aseg == 49)
-        idx = np.where(th_mask)
-        i1 = (np.mean(idx[0]) - np.round(0.5 * bounding_box_width)).astype(int)
-        j1 = (np.mean(idx[1]) - np.round(0.5 * bounding_box_width)).astype(int)
-        k1 = (np.mean(idx[2]) - np.round(0.5 * bounding_box_width)).astype(int)
-        i2 = i1 + bounding_box_width
-        j2 = j1 + bounding_box_width
-        k2 = k1 + bounding_box_width
+        #th_mask = (aseg == 10) | (aseg == 49)
+        #idx = np.where(th_mask)
+        #i1 = (np.mean(idx[0]) - np.round(0.5 * bounding_box_width)).astype(int)
+        #j1 = (np.mean(idx[1]) - np.round(0.5 * bounding_box_width)).astype(int)
+        #k1 = (np.mean(idx[2]) - np.round(0.5 * bounding_box_width)).astype(int)
+        #i2 = i1 + bounding_box_width
+        #j2 = j1 + bounding_box_width
+        #k2 = k1 + bounding_box_width
 
-        t1 = t1[i1:i2, j1:j2, k1:k2]
-        aff2[:-1, -1] = aff2[:-1, -1] + np.matmul(aff2[:-1, :-1], np.array([i1, j1, k1])) # preserve the RAS coordinates
+        #t1 = t1[i1:i2, j1:j2, k1:k2]
+        #aff2[:-1, -1] = aff2[:-1, -1] + np.matmul(aff2[:-1, :-1], np.array([i1, j1, k1])) # preserve the RAS coordinates
 
         # Now the diffusion data
         # We only resample in the cropped region
@@ -148,7 +148,9 @@ def predict(subject_list,
             dti = np.abs(v1 * fa[..., np.newaxis])
         else:
             fa, aff, _ = utils.load_volume(fa_file, im_only=False)
+            print("SIZE OF FA IS: ", fa.shape)
             v1 = utils.load_volume(v1_file, im_only=True)
+            print("SIZE OF V1 IS: ", v1.shape)
             dti = np.abs(v1 * fa[..., np.newaxis])
             fa = utils.resample_like(t1, aff2, fa, aff)
             dti = utils.resample_like(t1, aff2, dti, aff)
@@ -163,27 +165,27 @@ def predict(subject_list,
         posteriors[:,:,:,nlab+1:] = 0.5 * posteriors[:,:,:,nlab+1:] + 0.5 *  posteriors_flipped[::-1,:,:,1:nlab+1]
 
         # Fill holes
-        thal_mask = posteriors[..., 0] < 0.5
-        thal_mask = ndimage.binary_fill_holes(thal_mask)
+        #thal_mask = posteriors[..., 0] < 0.5
+        #thal_mask = ndimage.binary_fill_holes(thal_mask)
 
 
         # remove stray voxels with conn comps
-        thal_mask_copy = thal_mask.copy()
+        #thal_mask_copy = thal_mask.copy()
         # min_size: size of largest objects to remove
         # connectivity: for connected components, 1 is 6-connected, 2 is
         # 18-connected, and 3 is 26-connected   
-        min_size = 10
-        connectivity = 3
+        #min_size = 10
+        #connectivity = 3
         #thal_mask = morphology.remove_small_objects(thal_mask_copy, min_size=min_size, connectivity=connectivity)
             
         ### OR just remove largest connected component
-        cc_labels = label(thal_mask_copy,connectivity=connectivity)
-        thal_mask = cc_labels == np.argmax(np.bincount(cc_labels.flat, weights=thal_mask_copy.flat))
+        #cc_labels = label(thal_mask_copy,connectivity=connectivity)
+        #thal_mask = cc_labels == np.argmax(np.bincount(cc_labels.flat, weights=thal_mask_copy.flat))
 
 
 
-        posteriors[thal_mask, 0] = 0
-        posteriors /= np.sum(posteriors, axis=-1)[..., np.newaxis]
+        #posteriors[thal_mask, 0] = 0
+        #posteriors /= np.sum(posteriors, axis=-1)[..., np.newaxis]
 
         #components, n_components = ndimage.label(thal_mask)
 

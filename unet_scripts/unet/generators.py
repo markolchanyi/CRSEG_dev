@@ -562,8 +562,6 @@ def image_seg_generator_rgb_validation(validation_dir,
                             randomize_resolution=False,
                             diffusion_resolution=None,
                             seg_selection='combined'):
-
-    print("STARTING VALIDATION!!!!")
     # check type of one-hot encoding
     assert (seg_selection == 'single') or (seg_selection == 'combined'),\
         'seg_selection must be single or combined'
@@ -598,7 +596,7 @@ def image_seg_generator_rgb_validation(validation_dir,
         indices = list(range(count, count+batchsize))
         count += batchsize
 
-        if count >= n_training:
+        if count >= n_validation:
             count = 0
 
         # ToDo handle overflow within the indices when batchsize does not divide n_training

@@ -264,7 +264,7 @@ def train_model(model,
                             steps_per_epoch=n_steps,
                             callbacks=callbacks,
                             initial_epoch=init_epoch,
-                            use_multiprocessing=True,
+                            use_multiprocessing=False,
                             validation_data=validation_generator,
                             validation_steps=60,
                             validation_freq=validation_freq)
