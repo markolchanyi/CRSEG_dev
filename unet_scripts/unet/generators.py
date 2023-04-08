@@ -520,7 +520,7 @@ def image_seg_generator_rgb(training_dir,
                     lowb_def = torch.flip(lowb_def, [0])
                     fa_def = torch.flip(fa_def, [0])
                     for c in range(3):
-                        dti_def[:,:,:,c] = torch.flip(dti_def[:,:,:,c], [0]) 
+                        dti_def[:,:,:,c] = torch.flip(dti_def[:,:,:,c], [0])
                     #dti_def = torch.flip(dti_def, [0])
 
                     flip_idx = torch.cat((torch.zeros(1, dtype=torch.long),
