@@ -57,8 +57,8 @@ def predict(subject_list,
 
         if not os.path.exists(os.path.join(fs_subject_dir, subject, 'results')):
             os.mkdir(os.path.join(fs_subject_dir, subject, 'results'))
-        output_seg_file = os.path.join(fs_subject_dir, subject, 'results', 'thalNet_reduced_randV1_e050.seg.mgz')
-        output_vol_file = os.path.join(fs_subject_dir, subject, 'results', 'thalNet_reduced_randV1_e050.vol.npy')
+        output_seg_file = os.path.join(fs_subject_dir, subject, 'results', 'bsNet.seg.mgz')
+        output_vol_file = os.path.join(fs_subject_dir, subject, 'results', 'bsNet.vol.npy')
 
         # File names
         if dataset=='HCP':
@@ -67,37 +67,12 @@ def predict(subject_list,
             fa_file = os.path.join(fs_subject_dir, subject, 'dmri', 'dtifit.1+2+3K_FA.nii.gz')
             v1_file = os.path.join(fs_subject_dir, subject, 'dmri', 'dtifit.1+2+3K_V1.nii.gz')
 
-        if dataset=='ADNI':
-            # t1_file = os.path.join(fs_subject_dir, subject, 'mri', 'norm.reg2dwi.mgz')
-            # aseg_file = os.path.join(fs_subject_dir, subject, 'mri', 'aseg.reg2dwi.mgz')
-            # fa_file = os.path.join(fs_subject_dir, subject, 'dmri', 'data_dtifit_FA.nii.gz')
-            # v1_file = os.path.join(fs_subject_dir, subject, 'dmri', 'data_dtifit_V1.nii.gz')
-            t1_file = os.path.join(fs_subject_dir, subject, 'mri', 'norm.mgz')
-            aseg_file = os.path.join(fs_subject_dir, subject, 'mri', 'aseg.mgz')
-            fa_file = os.path.join(fs_subject_dir, subject, 'dmri', 'dtifit.1K_FA.nii.gz')
-            v1_file = os.path.join(fs_subject_dir, subject, 'dmri', 'dtifit.1K_V1.nii.gz')
 
         if dataset == 'template':
             t1_file = os.path.join(fs_subject_dir, subject, 'dmri', 'lowb.nii.gz')
-            aseg_file = os.path.join(fs_subject_dir, subject, 'dmri', 'seg.mgz')
             fa_file = os.path.join(fs_subject_dir, subject, 'dmri', 'FA.nii.gz')
             v1_file = os.path.join(fs_subject_dir, subject, 'dmri', 'tracts.nii.gz')
 
-        if dataset == 'validate':
-            t1_file = os.path.join(fs_subject_dir, subject, subject[:-3] + '.t1.nii.gz')
-            aseg_file = os.path.join(fs_subject_dir, subject, 'mri', 'aseg.mgz')
-            fa_file = os.path.join(fs_subject_dir, subject, 'dmri', subject + '_fa.nii.gz')
-            v1_file = os.path.join(fs_subject_dir, subject, 'dmri', subject + '_v1.nii.gz')
-
-        if dataset=='DRC':
-            # t1_file = os.path.join(fs_subject_dir, subject, 'mri', 'norm.reg2dwi.mgz')
-            # aseg_file = os.path.join(fs_subject_dir, subject, 'mri', 'aseg.reg2dwi.mgz')
-            # fa_file = os.path.join(fs_subject_dir, subject, 'dmri', 'data_dtifit_FA.nii.gz')
-            # v1_file = os.path.join(fs_subject_dir, subject, 'dmri', 'data_dtifit_V1.nii.gz')
-            t1_file = os.path.join(fs_subject_dir, subject, 'mri', 'norm.mgz')
-            aseg_file = os.path.join(fs_subject_dir, subject, 'mri', 'aseg.mgz')
-            fa_file = os.path.join(fs_subject_dir, subject, 'dmri', 'dtifit.1K_FA.nii.gz')
-            v1_file = os.path.join(fs_subject_dir, subject, 'dmri', 'dtifit.1K_V1.nii.gz')
 
         # Read in and reorient T1
         t1, aff, _ = utils.load_volume(t1_file, im_only=False)
@@ -109,16 +84,12 @@ def predict(subject_list,
             print('Warning: t1 does not have the resolution that the CNN expects; we need to resample')
             t1, aff2 = utils.rescale_voxel_size(t1, aff2, [resolution_model_file, resolution_model_file, resolution_model_file])
 
-        # Read and resample ASEG
-        aseg, aff, _ = utils.load_volume(aseg_file, im_only=False)
-        aseg = utils.resample_like(t1, aff2, aseg, aff, method='nearest')
-
         # Normalize the T1
-        wm_mask = (aseg == 2) | (aseg == 41)
-        wm_t1_median = np.median(t1[wm_mask])
-        t1 = t1 / wm_t1_median * 0.75
-        t1[t1 < 0] = 0
-        t1[t1 > 1] = 1
+        #wm_mask = (aseg == 2) | (aseg == 41)
+        #wm_t1_median = np.median(t1[wm_mask])
+        #t1 = t1 / wm_t1_median * 0.75
+        #t1[t1 < 0] = 0
+        #t1[t1 > 1] = 1
 
         # Find the center of the thalamus and crop a volumes around it
         #th_mask = (aseg == 10) | (aseg == 49)
@@ -145,18 +116,16 @@ def predict(subject_list,
             v1[:, :, :, 0] = - utils.resample_like(t1, aff2, v1_copy[:, :, :, 0], aff, method='nearest') # minus as in generators.py
             v1[:, :, :, 1] = utils.resample_like(t1, aff2, v1_copy[:, :, :, 1], aff, method='nearest')
             v1[:, :, :, 2] = utils.resample_like(t1, aff2, v1_copy[:, :, :, 2], aff, method='nearest')
-            dti = np.abs(v1 * fa[..., np.newaxis])
+            #dti = np.abs(v1 * fa[..., np.newaxis])
         else:
             fa, aff, _ = utils.load_volume(fa_file, im_only=False)
-            print("SIZE OF FA IS: ", fa.shape)
             v1 = utils.load_volume(v1_file, im_only=True)
-            print("SIZE OF V1 IS: ", v1.shape)
             dti = np.abs(v1 * fa[..., np.newaxis])
             fa = utils.resample_like(t1, aff2, fa, aff)
-            dti = utils.resample_like(t1, aff2, dti, aff)
+            dti = utils.resample_like(t1, aff2, v1, aff)
 
         # Predict with left-right flipping augmentation
-        input = np.concatenate((t1[..., np.newaxis], fa[..., np.newaxis], dti ), axis=-1)[np.newaxis,...]
+        input = np.concatenate((t1[..., np.newaxis], fa[..., np.newaxis], dti), axis=-1)[np.newaxis,...]
         posteriors = np.squeeze(unet_model.predict(input))
         posteriors_flipped = np.squeeze(unet_model.predict(input[:,::-1,:,:,:]))
         nlab = int(( len(label_list) - 1 ) / 2)

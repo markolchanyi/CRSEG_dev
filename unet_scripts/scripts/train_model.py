@@ -13,7 +13,7 @@ model_name = 'joint_brainstem_model_v2'
 # Fraction of DTI voxels to randomised. Between 0 and 1. Set to 0 to turn off speckle. 1 in 10k sounds right
 speckle_frac_selected=1e-4
 # Flag whether we'll individually rotate the DTI vectors
-nonlinear_rotation=True
+nonlinear_rotation=False
 # Will we deform the images with piecewise linear displacement fields (this includes re-orientation)
 flag_deformation = True
 # Maximimum piecewise linear displacement in mm (excluding rotation + scaling)
@@ -43,7 +43,7 @@ model_dir = os.path.join(top_level_model_dir,model_name)
 # Maximum scaling during augmentation, in [0,1]. 0.15 is a good value
 scaling_bounds = 0.15
 # Maximum rotation during augmentation, in degrees. 15 is a good value
-rotation_bounds = 15
+rotation_bounds = 20
 # Maximum standard deviation of noise to add in augmentation.
 # Since images are normalized, 0.1 is a good value for t1 (a bit lower for FA, since it's a fit already)
 max_noise_std = 0.1
@@ -77,13 +77,13 @@ unet_feat_count = 24
 # Feature multiplier, to have more features deeper in the net. We used to do 2, more recently Benjamin started using 1
 feat_multiplier = 2
 # Dropout probability (between 0 and 1, we normally disable it by setting it to 0)
-dropout = 0.2
+dropout = 0
 # Type of activation / nonlinearity (elu is good)
 activation = 'elu'
 # Learning rate: 1e-3 is too much, 1e-5 is generally too little, so 1e-4 is good
 lr = 1e-4
 # Decay in learning rate, if you want to schedule. I normally leave it alone (ie set it to 0)
-lr_decay = 0
+lr_decay = 0.2
 # Number of "pretraining" epochs where we use the L2 norm on the activations rather than Dice in the softmax (5-10)
 wl2_epochs = 5
 # Number of epocs with Dice
@@ -91,9 +91,10 @@ dice_epochs = 1000
 # Steps per epoch (1000 is good)
 steps_per_epoch = 1000
 # Checkpoint file from which training will start (use None to start from scratch)
+checkpoint = '/autofs/space/nicc_003/users/olchanyi/models/CRSEG_unet_models/joint_brainstem_model_v1/dice_060.h5'
 checkpoint = None
 # frequency of saving model checkpoints (Dice iterations only)
-checkpoint_frequency = 30
+checkpoint_frequency = 15
 
 train(training_dir,
              path_label_list,

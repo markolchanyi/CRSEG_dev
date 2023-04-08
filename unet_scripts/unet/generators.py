@@ -388,7 +388,7 @@ def image_seg_generator_rgb(training_dir,
 
             # TODO: the -1 in the first coordinate (left-right) -1 is crucial
             # I wonder if (/hope!) it's the same for every FreeSurfer processed dataset
-            v1[:, :, :, 0] = - v1[:, :, :, 0]
+            #v1[:, :, :, 0] = - v1[:, :, :, 0]
 
             if not flag_deformation:
                 if not nonlinear_rotation:
@@ -429,22 +429,27 @@ def image_seg_generator_rgb(training_dir,
                                                                         nonlinear_rotation, rotation_bounds)
 
                 lowb_def = fast_3D_interp_torch(lowb, xx2, yy2, zz2, 'linear')
+                fa_def = fast_3D_interp_torch(fa, xx2, yy2, zz2, 'linear')
+                dti_def = fast_3D_interp_torch(v1, xx2, yy2, zz2, 'linear')
+                for c in range(3):
+                    dti_def[:,:,:,c] = fast_3D_interp_torch(v1[:,:,:,c], xx2, yy2, zz2, 'linear')
 
             # interpolate the segmentation
             seg_def = fast_3D_interp_torch(seg, xx2, yy2, zz2, 'nearest')
 
             # Randomization of resolution increases running time by 0.5-1.0 seconds, which is not terrible...
             if randomize_resolution:
-                # Random resolution for diffusion: between ~ 1 and 3 mm in each axis (but not too far from each other)
-                aux = 1 + 2 * np.random.rand(1)
-                batch_resolution_diffusion = aux + 0.2 * np.random.randn(3)
+                # Random resolution for diffusion: between ~ 1 and 1.5 mm in each axis (but not too far from each other)
+                aux = 1 + 0.2*np.random.rand(1)
+                batch_resolution_diffusion = aux + 0.1 * np.random.randn(3)
                 batch_resolution_diffusion[batch_resolution_diffusion < 1] = 1 # let's be realistic :-)
 
                 # Random resolution for t1: between 0.7 and 1.3 mm in each axis (but not too far from each other)
-                aux = 0.7 + 0.6 * np.random.rand(1)
-                batch_resolution_lowb = aux + 0.05 * np.random.randn(3)
-                batch_resolution_lowb[batch_resolution_diffusion < 0.6] = 0.6 # let's be realistic :-)
-
+                #### NOT FOR TRACTOGRAPHY -Mark
+                #aux = 0.7 + 0.6 * np.random.rand(1)
+                #batch_resolution_lowb = aux + 0.05 * np.random.randn(3)
+                #batch_resolution_lowb[batch_resolution_diffusion < 0.6] = 0.6 # let's be realistic :-)
+                batch_resolution_lowb = batch_resolution_diffusion
                 # The theoretical blurring sigma to blur the resolution depends on the fraction by which we want to
                 # divide the power at the cutoff frequency. I use [3, 20] which translates into multiplying the ratio
                 # of resolutions by [0.35,0.95]
@@ -462,24 +467,32 @@ def image_seg_generator_rgb(training_dir,
 
                 # Low-pass filtering to blur data!
                 lowb_def = torch.tensor(gauss_filt(lowb_def, sigmas_lowb, truncate=3.0), device='cpu')
+                fa_def = torch.tensor(gauss_filt(fa_def, sigmas_lowb, truncate=3.0), device='cpu')
                 for c in range(3):
-                    dti_def[:,:,:,c] = torch.tensor(gauss_filt(dti_def[:,:,:,c], sigmas_diffusion, truncate=3.0), device='cpu')
+                    dti_def[:,:,:,c] = torch.tensor(gauss_filt(dti_def[:,:,:,c], sigmas_lowb, truncate=3.0), device='cpu')
 
                 # Subsample
                 lowb_def = myzoom_torch(lowb_def, 1 / ratio_lowb)
-                dti_def = myzoom_torch(dti_def, 1 / ratio_diffusion)
+                fa_def = myzoom_torch(fa_def, 1 / ratio_lowb)
+                dti_def = myzoom_torch(dti_def, 1 / ratio_lowb)
+                #for c in range(3):
+                #    dti_def[:,:,:,c] = myzoom_torch(dti_def[:,:,:,c], 1 / ratio_lowb)
 
 
 
             # Augment intensities t1 and fa
             # Note that if you are downsampling, augmentation happens here at low resolution (as will happen at test time)
             lowb_def = utils.augment_t1(lowb_def, gamma_std, contrast_std, brightness_std, max_noise_std)
-
-            if randomize_speckle:
-                dti_def, fa_def = speckle_dti_and_fa(dti_def, gamma_std, max_noise_std_fa,
-                                                     speckle_frac_selected)
-            else:
-                dti_def, fa_def = augment_dti_and_fa(dti_def, gamma_std, max_noise_std_fa)
+            fa_def = utils.augment_t1(fa_def, gamma_std, contrast_std, brightness_std, max_noise_std)
+            #for c in range(3):
+            #        dti_def[:,:,:,c] = utils.augment_t1(dti_def[:,:,:,c], gamma_std, contrast_std, brightness_std, max_noise_std)
+            dti_def = augment_tract_channel_intensities(dti_def)
+            #dti_def = utils.augment_t1(dti_def, gamma_std, contrast_std, brightness_std, max_noise_std)
+            #if randomize_speckle:
+            #    dti_def, fa_def = speckle_dti_and_fa(dti_def, gamma_std, max_noise_std_fa,
+            #                                         speckle_frac_selected)
+            #else:
+            #    dti_def, fa_def = augment_dti_and_fa(dti_def, gamma_std, max_noise_std_fa)
 
             # Bring back to original resolution if needed
             if randomize_resolution:
@@ -488,9 +501,10 @@ def image_seg_generator_rgb(training_dir,
                 # Using ratio_t1 and ratio_diffusion may give a size that is off 1 pixel due to rounding
                 ratio = (torch.tensor(seg_def.shape[:3], device='cpu') / torch.tensor(lowb_def.shape, device='cpu')).detach().numpy()
                 lowb_def = myzoom_torch(lowb_def, ratio)
-                ratio = (torch.tensor(seg_def.shape[:3], device='cpu') / torch.tensor(dti_def.shape[:-1], device='cpu')).detach().numpy()
+                fa_def = myzoom_torch(fa_def, ratio)
+                #ratio = (torch.tensor(seg_def.shape[:3], device='cpu') / torch.tensor(dti_def.shape[:-1], device='cpu')).detach().numpy()
                 dti_def = myzoom_torch(dti_def, ratio)
-                fa_def = torch.sqrt(torch.sum(dti_def * dti_def, dim=-1))
+                #fa_def = torch.sqrt(torch.sum(dti_def * dti_def, dim=-1))
 
             # Efficiently turn label map into one hot encoded array
             onehot = encode_onehot(mapping, seg_def, label_list, seg_selection, grp_mat)
@@ -505,7 +519,9 @@ def image_seg_generator_rgb(training_dir,
                 if test_flip:
                     lowb_def = torch.flip(lowb_def, [0])
                     fa_def = torch.flip(fa_def, [0])
-                    dti_def = torch.flip(dti_def, [0])
+                    for c in range(3):
+                        dti_def[:,:,:,c] = torch.flip(dti_def[:,:,:,c], [0]) 
+                    #dti_def = torch.flip(dti_def, [0])
 
                     flip_idx = torch.cat((torch.zeros(1, dtype=torch.long),
                                           torch.arange((len(label_list)+1)/2, len(label_list), dtype=torch.long),
@@ -516,19 +532,19 @@ def image_seg_generator_rgb(training_dir,
 
 
             # If you want to save to disk and open with Freeview during debugging
-            # from joint_diffusion_structural_seg.utils import save_volume
-            # utils.save_volume(t1, aff, None, '/tmp/t1.mgz')
-            # utils.save_volume(t1_def, aff, None, '/tmp/t1_def.mgz')
-            # utils.save_volume(fa, aff, None, '/tmp/fa.mgz')
-            # utils.save_volume(fa_def, aff, None, '/tmp/fa_def.mgz')
-            # utils.save_volume(seg, aff, None, '/tmp/seg.mgz')
-            # utils.save_volume(seg_def, aff, None, '/tmp/seg_def.mgz')
-            # utils.save_volume(v1, aff, None, '/tmp/v1.mgz')
-            # dti = np.abs(v1 * fa[..., np.newaxis])
-            # utils.save_volume(dti * 255, aff, None, '/tmp/dti.mgz')
-            # utils.save_volume(dti_def * 255, aff, None, '/tmp/dti_def.mgz')
-            # utils.save_volume(dti_def / (fa_def[..., None] + 1e-6), aff, None, '/tmp/v1_def.mgz')
-            # utils.save_volume(onehot, aff, None, '/tmp/onehot_def.mgz')
+            #from utils import save_volume
+            #utils.save_volume(lowb, aff, None, '/autofs/space/nicc_003/users/olchanyi/CRSEG_dev/unet_scripts/scripts/tmp/lowb.mgz')
+            #utils.save_volume(lowb_def, aff, None, '/autofs/space/nicc_003/users/olchanyi/CRSEG_dev/unet_scripts/scripts/tmp/lowb_def.mgz')
+            #utils.save_volume(fa, aff, None, '/autofs/space/nicc_003/users/olchanyi/CRSEG_dev/unet_scripts/scripts/tmp/fa.mgz')
+            #utils.save_volume(fa_def, aff, None, '/autofs/space/nicc_003/users/olchanyi/CRSEG_dev/unet_scripts/scripts/tmp/fa_def.mgz')
+            #utils.save_volume(seg, aff, None, '/autofs/space/nicc_003/users/olchanyi/CRSEG_dev/unet_scripts/scripts/tmp/seg.mgz')
+            #utils.save_volume(seg_def, aff, None, '/autofs/space/nicc_003/users/olchanyi/CRSEG_dev/unet_scripts/scripts/tmp/seg_def.mgz')
+            #utils.save_volume(v1, aff, None, '/autofs/space/nicc_003/users/olchanyi/CRSEG_dev/unet_scripts/scripts/tmp/v1.mgz')
+            #dti = np.abs(v1 * fa[..., np.newaxis])
+            #utils.save_volume(dti * 255, aff, None, '/tmp/dti.mgz')
+            #utils.save_volume(dti_def, aff, None, '/autofs/space/nicc_003/users/olchanyi/CRSEG_dev/unet_scripts/scripts/tmp/v1_def.mgz')
+            #utils.save_volume(dti_def / (fa_def[..., None] + 1e-6), aff, None, '/tmp/v1_def.mgz')
+            #utils.save_volume(onehot, aff, None, '/autofs/space/nicc_003/users/olchanyi/CRSEG_dev/unet_scripts/scripts/tmp/onehot_def.mgz')
 
             list_images.append((torch.concat((lowb_def[..., None], fa_def[..., None], dti_def), axis=-1)[None, ...]).detach().numpy())
             list_label_maps.append((onehot[None, ...]).detach().numpy())
@@ -668,11 +684,11 @@ def image_seg_generator_rgb_validation(validation_dir,
                      cropy:cropy+crop_size[1],
                      cropz:cropz+crop_size[2]]
 
-            dti_crop = np.abs(v1_crop * fa_crop[..., np.newaxis])
+            #dti_crop = np.abs(v1_crop * fa_crop[..., np.newaxis])
 
             onehot = encode_onehot(mapping, seg_crop, label_list, seg_selection, grp_mat)
 
-            list_images.append((torch.concat((lowb_crop[..., None], fa_crop[..., None], dti_crop), dim=-1)[None, ...]).detach().numpy())
+            list_images.append((torch.concat((lowb_crop[..., None], fa_crop[..., None], v1_crop), dim=-1)[None, ...]).detach().numpy())
             list_label_maps.append((onehot[None, ...]).detach().numpy())
 
 
@@ -856,8 +872,17 @@ def augment_dti_and_fa(dti_def, gamma_std, max_noise_std_fa):
     return dti_def, fa_def
 
 
-def encode_onehot(mapping, seg_def, label_list, seg_selection, grp_mat):
+def augment_tract_channel_intensities(dti):
+    aug = np.random.rand()
+    if aug < 0.06:
+        mgn_rand = 1 + np.random.normal(loc=1.0, scale=5.0, size=(3,1))
+        for c in range(3):
+            dti[:,:,:,c] = dti[:,:,:,c]*mgn_rand[c]
+        return dti
+    else:
+        return dti
 
+def encode_onehot(mapping, seg_def, label_list, seg_selection, grp_mat):
     if seg_selection == 'single':
         seg_def = mapping[seg_def.long()]
         eye = np.eye(len(label_list))

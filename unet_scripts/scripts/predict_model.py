@@ -7,12 +7,12 @@ from predict import predict
 
 
 # keep in list form since you can iterate over multiple sunjects explicitely...implicit will be added soon
-subject_list = ['subject_111716']
+subject_list = ['subject_123117','subject_148840','subject_154734','subject_208226']
 fs_subject_dir = '/autofs/space/nicc_003/users/olchanyi/data/CRSEG_unet_training_data/test_data/'
 # for now...must be
 dataset = 'template'
 path_label_list = '../../../data/CRSEG_unet_training_data/7ROI_training_dataset/brainstem_wm_label_list.npy'
-model_file = '../../../models/CRSEG_unet_models/joint_brainstem_model_v1/dice_090.h5'
+model_file = '/autofs/space/nicc_003/users/olchanyi/models/CRSEG_unet_models/joint_brainstem_model_v1/dice_045.h5'
 # model file resolution
 resolution_model_file=1.0
 # generator mode for prediction data (make sure same as training!)
