@@ -6,6 +6,21 @@ from skimage.measure import label
 from scipy import ndimage
 
 
+
+def rescale_intensities(vol,factor=5):
+        vol = vol - vol.mean()
+        vol = vol/(factor*vol.std())
+
+        vol += 0.5
+        #clip
+        vol[vol < 0] = 0
+        vol[vol > 1] = 1
+
+        return vol
+
+
+
+
 ########
 # CURRENTLY ONLY APPLIES FOR HCP!!!
 ########
@@ -135,9 +150,9 @@ for subject_name in data_list:
                 vol_fa_np = vol_fa.get_fdata()
 
                 ### rescaling
-                vol_tracts_np_normalized = (vol_tracts_np - vol_tracts_np.mean()) / vol_tracts_np.std()
-                vol_lowb_np_normalized = (vol_lowb_np - vol_lowb_np.mean()) / vol_lowb_np.std()
-                vol_fa_np_normalized = (vol_fa_np - vol_fa_np.mean()) / vol_fa_np.std()
+                vol_tracts_np_normalized = rescale_intensities(vol_tracts_np,factor=20)
+                vol_lowb_np_normalized = rescale_intensities(vol_lowb_np,factor=5)
+                vol_fa_np_normalized = rescale_intensities(vol_fa_np,factor=5)
 
                 print("TRACTS MEAN IS: ", np.mean(vol_tracts_np_normalized))
                 print("TRACTS VAR IS: ", np.var(vol_tracts_np_normalized))

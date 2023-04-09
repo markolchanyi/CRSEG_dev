@@ -324,21 +324,21 @@ def upsample(X, ratio, size, method='linear', return_locations=False):
     inc = 1.0 / ratio[0]
     end = start + inc * size[0] - 1e-6
     xi = np.arange(start, end, inc)
-    #xi[xi < 0] = 0
+    xi[xi < 0] = 0
     xi[xi > X.shape[0] - 1] = X.shape[0] - 1
 
     start = (1.0 - ratio[1]) / (2.0 * ratio[1])
     inc = 1.0 / ratio[1]
     end = start + inc * size[1] - 1e-6
     yi = np.arange(start, end, inc)
-    #yi[yi < 0] = 0
+    yi[yi < 0] = 0
     yi[yi > X.shape[1] - 1] = X.shape[1] - 1
 
     start = (1.0 - ratio[2]) / (2.0 * ratio[2])
     inc = 1.0 / ratio[2]
     end = start + inc * size[2] - 1e-6
     zi = np.arange(start, end, inc)
-    #zi[zi < 0] = 0
+    zi[zi < 0] = 0
     zi[zi > X.shape[2] - 1] = X.shape[2] - 1
 
     xig, yig, zig = np.meshgrid(xi, yi, zi, indexing='ij', sparse=True)
@@ -355,8 +355,8 @@ def augment_fa(X, gamma_std, max_noise_std_fa):
     gamma_fa = np.exp(gamma_std * np.random.randn(1)[0])
     noise_std = max_noise_std_fa * np.random.rand(1)[0]
     Y = X + noise_std * np.random.randn(*X.shape)
-    #Y[Y < 0] = 0
-    #Y[Y > 1] = 1
+    Y[Y < 0] = 0
+    Y[Y > 1] = 1
     Y = Y ** gamma_fa
     return Y
 
@@ -368,8 +368,8 @@ def augment_t1(X, gamma_std, contrast_std, brightness_std, max_noise_std):
     brightness = np.min((0.4, np.max((-0.4, brightness_std * np.random.randn(1)[0]))))
     noise_std = max_noise_std * np.random.rand(1)[0]
     Y = ((X - 0.5) * contrast + (0.5 + brightness)) + noise_std * np.random.randn(*X.shape)
-    #Y[Y < 0] = 0
-    #Y[Y > 1] = 1
+    Y[Y < 0] = 0
+    Y[Y > 1] = 1
     Y = Y ** gamma_t1
     return Y
 
@@ -404,9 +404,9 @@ def rescale_voxel_size(volume, aff, new_vox_size):
     xi = np.arange(start=start[0], stop=stop[0], step=step[0])
     yi = np.arange(start=start[1], stop=stop[1], step=step[1])
     zi = np.arange(start=start[2], stop=stop[2], step=step[2])
-    #xi[xi < 0] = 0
-    #yi[yi < 0] = 0
-    #zi[zi < 0] = 0
+    xi[xi < 0] = 0
+    yi[yi < 0] = 0
+    zi[zi < 0] = 0
     xi[xi > (volume_filt.shape[0] - 1)] = volume_filt.shape[0] - 1
     yi[yi > (volume_filt.shape[1] - 1)] = volume_filt.shape[1] - 1
     zi[zi > (volume_filt.shape[2] - 1)] = volume_filt.shape[2] - 1
