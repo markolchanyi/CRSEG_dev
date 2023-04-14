@@ -58,6 +58,7 @@ def predict(subject_list,
         if not os.path.exists(os.path.join(fs_subject_dir, subject, 'results')):
             os.mkdir(os.path.join(fs_subject_dir, subject, 'results'))
         output_seg_file = os.path.join(fs_subject_dir, subject, 'results', 'bsNet.seg.mgz')
+        output_posteriors_file = os.path.join(fs_subject_dir, subject, 'results', 'bsNet.posteriors.mgz')
         output_vol_file = os.path.join(fs_subject_dir, subject, 'results', 'bsNet.vol.npy')
 
         # File names
@@ -120,9 +121,10 @@ def predict(subject_list,
         else:
             fa, aff, _ = utils.load_volume(fa_file, im_only=False)
             v1 = utils.load_volume(v1_file, im_only=True)
-            dti = np.abs(v1 * fa[..., np.newaxis])
+            #dti = np.abs(v1 * fa[..., np.newaxis])
             fa = utils.resample_like(t1, aff2, fa, aff)
             dti = utils.resample_like(t1, aff2, v1, aff)
+            #dti = v1
 
         # Predict with left-right flipping augmentation
         input = np.concatenate((t1[..., np.newaxis], fa[..., np.newaxis], dti), axis=-1)[np.newaxis,...]
@@ -175,7 +177,7 @@ def predict(subject_list,
         # Write to disk and we're done!
         utils.save_volume(seg.astype(int), aff2, None, output_seg_file)
         np.save(output_vol_file, vols_in_mm3)
-
+        utils.save_volume(posteriors, aff2, None, output_posteriors_file)
         print('freeview ' + t1_file + ' ' + fa_file + ' '  + output_seg_file)
 
         print('All done!')

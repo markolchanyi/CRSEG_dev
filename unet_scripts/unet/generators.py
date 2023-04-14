@@ -875,9 +875,11 @@ def augment_dti_and_fa(dti_def, gamma_std, max_noise_std_fa):
 def augment_tract_channel_intensities(dti):
     aug = np.random.rand()
     if aug < 0.06:
-        mgn_rand = 1 + np.random.normal(loc=1.0, scale=5.0, size=(3,1))
+        mgn_rand = np.random.normal(loc=0.0, scale=0.3, size=(3,1))
         for c in range(3):
-            dti[:,:,:,c] = dti[:,:,:,c]*mgn_rand[c]
+            dti[:,:,:,c] = dti[:,:,:,c] + mgn_rand[c]
+        dti[dti < 0] = 0
+        dti[dti > 1] = 1
         return dti
     else:
         return dti

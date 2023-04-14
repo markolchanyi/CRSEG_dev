@@ -83,7 +83,7 @@ activation = 'elu'
 # Learning rate: 1e-3 is too much, 1e-5 is generally too little, so 1e-4 is good
 lr = 1e-4
 # Decay in learning rate, if you want to schedule. I normally leave it alone (ie set it to 0)
-lr_decay = 0.2
+lr_decay = 0
 # Number of "pretraining" epochs where we use the L2 norm on the activations rather than Dice in the softmax (5-10)
 wl2_epochs = 5
 # Number of epocs with Dice
@@ -91,7 +91,7 @@ dice_epochs = 1000
 # Steps per epoch (1000 is good)
 steps_per_epoch = 1000
 # Checkpoint file from which training will start (use None to start from scratch)
-checkpoint = '/autofs/space/nicc_003/users/olchanyi/models/CRSEG_unet_models/joint_brainstem_model_v1/dice_060.h5'
+#checkpoint = '/autofs/space/nicc_003/users/olchanyi/models/CRSEG_unet_models/joint_brainstem_model_v1/dice_060.h5'
 checkpoint = None
 # frequency of saving model checkpoints (Dice iterations only)
 checkpoint_frequency = 15
