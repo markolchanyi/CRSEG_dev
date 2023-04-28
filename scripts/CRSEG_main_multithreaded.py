@@ -6,7 +6,8 @@ from crseg_register import register_multichan, propagate
 import multiprocessing as mp
 from pathlib import Path
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath("airlab/airlab/")))) #add airlab dir to working dir
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath("../airlab/airlab/")))) #add airlab dir to working dir
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath("../CRSEG/"))))
 
 import airlab as al
 

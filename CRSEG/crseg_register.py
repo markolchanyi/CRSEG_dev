@@ -15,9 +15,7 @@ from crseg_utils import resample,mean_threshold,crop_around_COM,\
 from torchmcubes import marching_cubes
 
 
-
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath("../airlab/airlab/")))) #add airlab dir to working dir
-
 import airlab as al
 
 
@@ -251,10 +249,6 @@ def register_multichan(casepath,
     print("=================================================================")
 
     return displacement_out, warped_test_image
-
-
-
-
 
 
 

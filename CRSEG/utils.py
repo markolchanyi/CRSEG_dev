@@ -43,14 +43,15 @@ def get_header_resolution(dwi_json_path):
     dw_head = json.load(f)
     return dw_head['spacing'][0]
 
+
 def tractography_mask(template_vol_path,output_path):
     template_vol,aff = load_nifti(template_vol_path, return_img=False)
     mask_vol = np.zeros_like(template_vol,dtype=int)
-    
+
     label_coords=np.argwhere(template_vol==1)
-    
-    min_point=np.min(label_coords[:],axis=0)    
-    max_point=np.max(label_coords[:],axis=0)    
-  
+
+    min_point=np.min(label_coords[:],axis=0)
+    max_point=np.max(label_coords[:],axis=0)
+
     mask_vol[min_point[0]:max_point[0],min_point[1]:max_point[1],min_point[2]:max_point[2]] = 1
     save_nifti(output_path,mask_vol,aff)
