@@ -98,8 +98,8 @@ for case_path in case_list_full:
         single_shell = shell_count <= 2
         print("...single_shell mode is " + str(single_shell))
         
-        if vox_resolution != 1.25:
-            print_no_newline("regridding dwi to HCP1200 resolution...")
+        if (vox_resolution > 1.3) or (vox_resolution < 1.2):
+            print_no_newline("Resolution is out of bounds!! Regridding dwi to HCP1200 resolution of 1.25mm iso...")
             os.system("mrgrid " + os.path.join(scratch_dir,"dwi.mif") + " regrid -vox 1.25 " + os.path.join(scratch_dir,"dwi_regridded_HCP.mif") + " -force")
             os.system("rm " + os.path.join(scratch_dir,"dwi.mif"))
             os.system("mv " + os.path.join(scratch_dir,"dwi_regridded_HCP.mif") + " " + os.path.join(scratch_dir,"dwi.mif"))
