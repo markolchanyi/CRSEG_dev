@@ -185,7 +185,6 @@ def main():
                                                                                                                                                         atlas_mask_path_list,
                                                                                                                                                         resample_factor=rf,
                                                                                                                                                         pre_affine_step=pre_affine_step,
-                                                                                                                                                        ismask = True,
                                                                                                                                                         flip=False,
                                                                                                                                                         resolution_flip=True,
                                                                                                                                                         res_atlas=0.5,

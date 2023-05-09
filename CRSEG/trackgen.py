@@ -7,12 +7,11 @@ import traceback
 import sys
 import numpy as np
 import multiprocessing as mp
-from dipy.io.image import load_nifti, save_nifti
 from utils import print_no_newline, parse_args_mrtrix, count_shells, get_header_resolution, tractography_mask
 
 
 """
-MrTrix-based probabalistic tractography preprocessing pipeline for brainstem WM bundles 
+MrTrix-based probabalistic tractography preprocessing pipeline for brainstem WM bundles
 
 Usage:
 
@@ -31,7 +30,7 @@ local_data_path = args.datapath
 bval_path = args.bvalpath
 bvec_path = args.bvecpath
 case_list_txt = args.caselist
-crop_size = args.cropsize 
+crop_size = args.cropsize
 output_folder = args.output
 
 case_list_full = []
@@ -97,7 +96,7 @@ for case_path in case_list_full:
         shell_count = count_shells(os.path.join(scratch_dir,"header.json"))
         single_shell = shell_count <= 2
         print("...single_shell mode is " + str(single_shell))
-        
+
         if (vox_resolution > 1.3) or (vox_resolution < 1.2):
             print_no_newline("Resolution is out of bounds!! Regridding dwi to HCP1200 resolution of 1.25mm iso...")
             os.system("mrgrid " + os.path.join(scratch_dir,"dwi.mif") + " regrid -vox 1.25 " + os.path.join(scratch_dir,"dwi_regridded_HCP.mif") + " -force")
@@ -146,7 +145,7 @@ for case_path in case_list_full:
         vox2ras_mat = np.loadtxt(os.path.join(scratch_dir,"thal_brainstem_vox2ras.txt"))
 
         ras_cntr = np.matmul(vox2ras_mat,brainstem_cntr_arr_hom.T) ## RAS coordinate transform through nultiplying by transform matrix
-        
+
         print_no_newline("creating tractography mask from thal and brainstem labels...")
         track_mask = tractography_mask(os.path.join(scratch_dir,"all_labels.nii"),os.path.join(scratch_dir,'tractography_mask.nii.gz'))
         print("done")
@@ -228,11 +227,11 @@ for case_path in case_list_full:
         #os.system("mv " + os.path.join(scratch_dir,"tracts_concatenated_color.mif") + " " + output_dir)
         #os.system("mrconvert " + os.path.join(output_dir,"tracts_concatenated.mif") + " " + os.path.join(output_dir,"tracts_concatenated.nii.gz") + " -datatype float32")
         #os.system("mrconvert " + os.path.join(output_dir,"tracts_concatenated_color.mif") + " " + os.path.join(output_dir,"tracts_concatenated_color.nii.gz") + " -datatype float32")
-        
+
         #os.system("mrgrid " + os.path.join(output_dir,"tracts_concatenated.mif") + " regrid -voxel 1.0 " + os.path.join(output_dir,"tracts_concatenated_1mm.mif" + " -force"))
         os.system("mri_convert --crop " + str(round(float(brainstem_cntr_arr[0]))) + " " + str(round(float(brainstem_cntr_arr[1]))) + " " +  str(round(float(brainstem_cntr_arr[2]))) + " --cropsize " + crop_size + " " + crop_size + " " + crop_size + " " + os.path.join(scratch_dir,'thal_brainstem_union.mgz') + " " + os.path.join(scratch_dir,'thal_brainstem_union_cropped.mgz'))
         os.system("mrgrid " + os.path.join(output_dir,"tracts_concatenated.mif") + " regrid -template " + os.path.join(scratch_dir,'thal_brainstem_union_cropped.mgz') + " -voxel 1.0 " + os.path.join(output_dir,"tracts_concatenated_1mm_cropped.mif" + " -force"))
-        
+
         #### delete scratch directory
         print_no_newline("deleting scratch directory...")
         shutil.rmtree(scratch_dir)

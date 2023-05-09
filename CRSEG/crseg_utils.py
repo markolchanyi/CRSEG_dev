@@ -249,6 +249,12 @@ def crop_around_borders(vol,mag,ax=0):
 
 
 
+def join_labels(vol):
+    vol[vol > 0] = 1
+    return vol
+
+
+
 
 def crop_around_COM(vol1,vol2,brainstem_mask1,brainstem_mask2,tolerance):
     shape1 = vol1.shape
@@ -302,6 +308,18 @@ def normalize_volume(vol):
     vol_windowed = vol
     return (vol_windowed - np.min(vol_windowed)) / (np.max(vol_windowed) - np.min(vol_windowed))
 
+
+
+def normalize_volume_mean_std(vol,factor=1):
+    vol = vol - vol.mean()
+    vol = vol/(factor*vol.std())
+
+    vol += 0.5
+    #clip
+    vol[vol < 0] = 0
+    vol[vol > 1] = 1
+
+    return vol
 
 
 
@@ -374,6 +392,20 @@ def template_volume_to_labels(template_path,output_dir,num_labels=80):
             save_nifti(output_dir + str(i) + ".nii",vol_out,dummy_affine)
 
     print("done")
+
+
+
+def affine_trans(atlas_path_list,test_path_list,test_mask_path,scratch_dir):
+    print("--------------- RUNNING AFFINE STEP -----------------------")
+    os.system("reg_aladin -ref " + atlas_path_list[1] + " -flo " + test_path_list[1] + " -res " + os.path.join(scratch_dir,"b0_affine_transformed.nii.gz") + " -aff " + os.path.join(scratch_dir,"affine_mat.txt"))
+    os.system("reg_resample -ref " + atlas_path_list[1] + " -flo " + test_path_list[0] + " -res " + os.path.join(scratch_dir,"fa_affine_transformed.nii.gz") + " -trans " + os.path.join(scratch_dir,"affine_mat.txt") + " -inter 2")
+    os.system("reg_resample -ref " + atlas_path_list[1] + " -flo " + test_path_list[1] + " -res " + os.path.join(scratch_dir,"b0_affine_transformed.nii.gz") + " -trans " + os.path.join(scratch_dir,"affine_mat.txt") + " -inter 2")
+
+    ### make sure nearest neighbor interpolation is used for label volume
+    os.system("reg_resample -ref " + atlas_path_list[1] + " -flo " + test_mask_path + " -res " + os.path.join(scratch_dir,"WM_masks_affine_transformed.nii.gz") + " -trans " + os.path.join(scratch_dir,"affine_mat.txt") + " -inter 0")
+
+    ### save inverse affine for propagation step
+    os.system("reg_transform -invAff " + os.path.join(scratch_dir,"affine_mat.txt") + " " +  os.path.join(scratch_dir,"inverse_affine_mat.txt"))
 
 
 

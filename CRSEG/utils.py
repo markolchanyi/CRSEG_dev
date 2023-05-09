@@ -22,6 +22,27 @@ def parse_args_mrtrix():
     return parser.parse_args()
 
 
+def parse_args_crseg_main():
+
+    parser = argparse.ArgumentParser(description="Runs white-matter constrained segmentation of Ascending arousal network nuclei in any HARDI volume")
+    #------------------- Required Arguments -------------------
+    parser.add_argument('-targfa','--target_fa_path', help="Directory for target FA volume", type=str, required=True)
+    parser.add_argument('-targlowb','--target_lowb_path', help="Directory for target LowB volume", type=str, required=True)
+    parser.add_argument('-atfa','--atlas_fa_path', help="Directory for FA atlas", type=str, required=True)
+    parser.add_argument('-atlowb','--atlas_lowb_path', help="Directory for LowB atlas", type=str, required=True)
+    parser.add_argument('-ataan','--atlas_aan_label_directory', help="Directory where GT atlas AAN labels are stored", type=str, required=True)
+    parser.add_argument('-llp','--label_list_path', help="Path to numpy array containing label values", type=str, required=True)
+    parser.add_argument('-wm','--wm_seg_path', help="Path to volume with white matter segmentations, must be in LUT format", type=str, required=True)
+    parser.add_argument('-atwm','--atlas_wm_seg_path', help="Path to atlas volume with white matter segmentations, must be in LUT format", type=str, required=True)
+    parser.add_argument('-o','--output_directory', help="Directory for output of all CRSEG files", type=str, required=True)
+    parser.add_argument('-t','--target_list', help="Directory or list of directories containing all target DTI volumes and their derivatives", type=str, required=False)
+    parser.add_argument('-r','--resolution', help="Resolution of target volumes", type=str, required=False)
+    parser.add_argument('-lo','--label_overlap', help="Overlap percentage of propagated labels. Lower percentage is better for lower-res volumes where more aliasing occurs", type=str, required=True)
+    parser.add_argument('-n','--num_threads', help="Number of CPU threads to spawn", type=str, required=True)
+
+    return parser.parse_args()
+
+
 def count_shells(dwi_json_path):
     f = open(dwi_json_path)
     dw_head = json.load(f)

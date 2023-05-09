@@ -263,7 +263,7 @@ field and saving the binarized propagations..
 
 
 
-def propagate(path,
+def propagate(label_path,
           savepath,
           basepath,
           savepath_normalized,
@@ -275,11 +275,10 @@ def propagate(path,
           resample_factor=None,
           flip=False,
           overlap=0.5,
-          resolution_flip=True,
-          resample_input=False,
+          resolution_flip=False,
           rotate_atlas=True,
           r_atlas=0.5,
-          r_test=0.75,
+          r_test=1.0,
           r_test_base=0.75,
           speed_crop=True,
           tolerance=[50,50],
@@ -290,15 +289,8 @@ def propagate(path,
     print("               Beginning label propagation...")
     print("=================================================================")
 
-    # extensions to consider
-    rootdir = path
+    # volume extensions to consider
     extensions = ('.nii','.nii.gz','.mgz')
-
-
-    if resample_input is not True:
-        res_test_base = r_test
-    else:
-        res_test_base = r_test_base
 
 
     #### set glob params and import stuff ####
@@ -309,7 +301,7 @@ def propagate(path,
 
 
     counter = 1
-    for subdir, dirs, files in os.walk(rootdir):
+    for subdir, dirs, files in os.walk(label_path):
         for file in files:
             if len(file.split('.')) > 2:
                 ext = '.' + file.split('.')[1] + '.' + file.split('.')[2]
@@ -324,16 +316,6 @@ def propagate(path,
                 test_mask, affine_tm = load_nifti(test_mask_path, return_img=False)
                 test_volume_foo = test_mask.copy()
                 pad_shape = test_mask.shape
-
-
-                if resample_input is True:
-                    print("resampling to: ", res_test, " mm")
-                    test_mask = resample(test_mask,res_atlas,res_test)
-                    test_mask = mean_threshold(test_mask_resampled)
-
-                if flip is True:
-                    print("flipping target volumes")
-                    test_mask = np.flip(test_mask,1)
 
                 atlas_mask,_ = load_nifti(atlas_mask_path, return_img=False)
 

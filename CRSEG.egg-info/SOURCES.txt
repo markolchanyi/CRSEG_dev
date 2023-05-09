@@ -1,0 +1,6 @@
+README.md
+setup.py
+CRSEG.egg-info/PKG-INFO
+CRSEG.egg-info/SOURCES.txt
+CRSEG.egg-info/dependency_links.txt
+CRSEG.egg-info/top_level.txt

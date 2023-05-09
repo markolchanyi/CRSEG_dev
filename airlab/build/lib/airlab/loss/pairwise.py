@@ -417,9 +417,9 @@ class COMPOUND(_PairwiseImageLoss_compound):
             #mse += self._varifold_distance_torch(cts_normals_fixed,cts_normals_moving,cts_fixed,cts_moving)
 
             mse += (self._mask_weights[i]*(moving_warped_mask - fixed_mask).pow(2)).mean()
-            save_nifti(self._casepath + "scratch/warped_mask_new" + str(i) + ".nii.gz",moving_warped_mask.detach().cpu().numpy()[0,0,...],np.eye(4))
-            save_nifti(self._casepath + "scratch/fixed_mask_new" + str(i) + ".nii.gz",self._fixed_mask_list[i].image.detach().cpu().numpy()[0,0,...],np.eye(4))
-            save_nifti(self._casepath + "scratch/fixed_im_new" + str(i) + ".nii.gz",self._fixed_image_list[0].image.detach().cpu().numpy()[0,0,...],np.eye(4))
+            #save_nifti(self._casepath + "scratch/warped_mask_new" + str(i) + ".nii.gz",moving_warped_mask.detach().cpu().numpy()[0,0,...],np.eye(4))
+            #save_nifti(self._casepath + "scratch/fixed_mask_new" + str(i) + ".nii.gz",self._fixed_mask_list[i].image.detach().cpu().numpy()[0,0,...],np.eye(4))
+            #save_nifti(self._casepath + "scratch/fixed_im_new" + str(i) + ".nii.gz",self._fixed_image_list[0].image.detach().cpu().numpy()[0,0,...],np.eye(4))
             #print("MSE loss for mask" + str(i) + " : ", mse)
             #moving_warped_mask = moving_warped_mask.detach().cpu().numpy()[0,0,...]
             #fixed_mask = self._fixed_mask_list[i].image.detach().cpu().numpy()[0,0,...]

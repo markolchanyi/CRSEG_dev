@@ -284,12 +284,12 @@ class Relaxed_DiffusionRegulariser(_Regulariser):
                 displacement_upd = grid1 + displacement
 
                 warped_mask = F.grid_sample(self._mask_list[i].image, displacement_upd)
-                warped_blurred_mask = self._gblur(warped_mask,kern_size=(5,5,5), sigma=(2,2,2))
+                warped_blurred_mask = self._gblur(warped_mask,kern_size=(5,5,5), sigma=(1.5,1.5,1.5))
                 local_weight_tensor += warped_blurred_mask
                 #warped_mask_np = warped_mask.squeeze().detach().numpy()
                 #mask_matted = self._return_matted_transform(warped_mask_np, alpha=20.0, beta=1.1, use_mask=self._using_mask)
                 #warped_mask_matted_list.append(mask_matted)
-            save_nifti("/Users/markolchanyi/Desktop/Edlow_Brown/Projects/datasets/ex_vivo_test_data/EXC012/scratch/regularization_field_new.nii.gz",local_weight_tensor.detach().cpu().numpy()[0,0,...],np.eye(4))
+            #save_nifti("/Users/markolchanyi/Desktop/Edlow_Brown/Projects/datasets/ex_vivo_test_data/EXC012/scratch/regularization_field_new.nii.gz",local_weight_tensor.detach().cpu().numpy()[0,0,...],np.eye(4))
 
             #smax_mask = self._smoothmax(warped_mask_matted_list,alpha=0.15,multiplier=1.0)
             #smask_matted_torch = th.from_numpy(smax_mask)

@@ -2,13 +2,17 @@ import sys
 import shutil
 import os
 import numpy as np
+import nibabel as nib
+import nibabel.processing
 import matplotlib.pyplot as plt
 import torch as th
+from utils import print_no_newline
 from skimage import morphology, filters
 from scipy.ndimage import gaussian_filter
 from dipy.io.image import load_nifti, save_nifti
 from crseg_utils import resample,mean_threshold,crop_around_COM,\
-    align_COM_masks,res_match_and_rescale,max_threshold,normalize_volume
+    align_COM_masks,res_match_and_rescale,max_threshold,normalize_volume,\
+    normalize_volume_mean_std,join_labels
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath("../airlab/airlab/")))) #add airlab dir to working dir
 
@@ -18,19 +22,14 @@ import airlab as al
 ################ MAIN LOADER FUNCTION ####################
 
 def prepare_vols_multichan(test_path_list,
-                       test_mask_path_list,
+                       test_WM_mask_path,
                        atlas_path_list,
-                       atlas_mask_path_list,
-                       resample_factor,
-                       pre_affine_step=True,
-                       ismask=True,
-                       flip=True,
-                       resolution_flip=True,
+                       atlas_WM_mask_path,
+                       label_array,
                        res_atlas=0.5,
                        res_test=0.75,
-                       r_test_base=0.75,
-                       resample_input=False,
-                       speed_crop=False,
+                       speed_crop=True,
+                       pre_affine_step=True,
                        rotate_atlas=False,
                        tolerance=[50, 50],
                        loss_region_sigma=25.0):
@@ -59,65 +58,92 @@ def prepare_vols_multichan(test_path_list,
     # set the device for the computaion to CPU
     device = th.device("cpu")
     n_channels = len(test_path_list)
-
-
-    if resample_input is not True:
-        res_test_base = res_test
-    else:
-        res_test_base = r_test_base
-
     test_list = []
     atlas_list = []
     test_masks_array_list = []
     atlas_masks_array_list = []
 
     for i in range(0,n_channels):
-        test_foo,dummy_affine = load_nifti(test_path_list[i], return_img=False)
-        np.nan_to_num(test_foo)
-        atlas_foo,_ = load_nifti(atlas_path_list[i], return_img=False)
-        np.nan_to_num(atlas_foo)
+        test_foo = nib.load(test_path_list[i])
+        atlas_foo = nib.load(atlas_path_list[i])
+        test_header = test_foo.header
+        atlas_header = atlas_foo.header
 
-        test_foo = normalize_volume(test_foo)
-        atlas_foo = normalize_volume(atlas_foo)
+        # conform test -> atlas headers. for intestities use 3rd order splines
+        #print_no_newline("conforming test volume " + str(i) + " ...")
+        #test_foo = nib.processing.conform(test_foo,out_shape=atlas_header.get_data_shape(), voxel_size=atlas_header.get_zooms(), order=3)
+        #print("done")
 
-        test_list.append(test_foo)
-        atlas_list.append(atlas_foo)
+        test_foo_np = np.array(test_foo.dataobj)
+        atlas_foo_np = np.array(atlas_foo.dataobj)
+        np.nan_to_num(test_foo_np)
+        np.nan_to_num(atlas_foo_np)
+        #test_foo_np = normalize_volume_mean_std(test_foo_np)
+        #atlas_foo_np = normalize_volume_mean_std(atlas_foo_np)
 
-    for i in range(0,len(test_mask_path_list)):
-        test_mask,_ = load_nifti(test_mask_path_list[i], return_img=False)
-        atlas_mask,_ = load_nifti(atlas_mask_path_list[i], return_img=False)
-
-        atlas_masks_array_list.append(atlas_mask)
-        test_masks_array_list.append(test_mask)
+        test_list.append(normalize_volume(test_foo_np))
+        atlas_list.append(normalize_volume(atlas_foo_np))
 
 
-    if resample_input is True:
-        print("resampling to: ", res_test, " mm")
-        for i in range(0,n_channels):
-            test_list[i] = resample(test_list[i],res_atlas,res_test)
+        del test_foo
+        del atlas_foo
+        del test_foo_np
+        del atlas_foo_np
 
-        #resample and threshold the masks
-        for i in range(0,len(test_mask_path_list)):
-            test_masks_array_list[i] = resample(test_masks_array_list[i],res_atlas,res_test)
-            test_masks_array_list[i] = mean_threshold(test_masks_array_list[i])
 
+    ## WM masks are all in a single LUT volume, so load them into a similar list fashion
+    test_wm_masks_vol = nib.load(test_WM_mask_path)
+    atlas_wm_masks_vol = nib.load(atlas_WM_mask_path)
+    test_wm_masks_header = test_wm_masks_vol.header
+    atlas_wm_masks_header = atlas_wm_masks_vol.header
+
+    # conform WM masks to atlas space, this should be nearest neighbor (0th order)
+    #print_no_newline("conforming test WM masks... ")
+    #test_wm_masks_vol = nib.processing.conform(test_wm_masks_vol,out_shape=atlas_wm_masks_header.get_data_shape(), voxel_size=atlas_wm_masks_header.get_zooms(), order=0)
+    test_wm_masks_vol = np.array(test_wm_masks_vol.dataobj)
+    atlas_wm_masks_vol = np.array(atlas_wm_masks_vol.dataobj)
+    print("done")
+
+
+    for i in range(0,label_array.size):
+        test_wm_masks_vol_copy = test_wm_masks_vol.copy()
+        atlas_wm_masks_vol_copy = atlas_wm_masks_vol.copy()
+
+        test_wm_masks_vol_copy[test_wm_masks_vol_copy != label_array[i]] = 0
+        test_wm_masks_vol_copy[test_wm_masks_vol_copy == label_array[i]] = 1
+        atlas_wm_masks_vol_copy[atlas_wm_masks_vol_copy != label_array[i]] = 0
+        atlas_wm_masks_vol_copy[atlas_wm_masks_vol_copy == label_array[i]] = 1
+
+        print("test mask shape is: ", test_wm_masks_vol_copy.shape)
+        test_masks_array_list.append(test_wm_masks_vol_copy)
+        atlas_masks_array_list.append(atlas_wm_masks_vol_copy)
+
+    del test_wm_masks_vol_copy
+    del atlas_wm_masks_vol_copy
 
     if rotate_atlas is True:
         for i in range(0,n_channels):
             atlas_list[i] = np.rot90(atlas_list[i],k=3,axes=(1, 2))
-        for i in range(0,len(test_mask_path_list)):
+        for i in range(0,label_array.size):
             atlas_masks_array_list[i] = np.rot90(atlas_masks_array_list[i],k=3,axes=(1, 2))
             atlas_masks_array_list[i] = max_threshold(atlas_masks_array_list[i])
 
-        if pre_affine_step:
-            for i in range(0,n_channels):
-                test_list[i] = np.rot90(test_list[i],k=3,axes=(1, 2))
-            for i in range(0,len(test_mask_path_list)):
-                test_masks_array_list[i] = np.rot90(test_masks_array_list[i],k=3,axes=(1, 2))
-                test_masks_array_list[i] = max_threshold(test_masks_array_list[i])
+        # strictly for finding COM
+        joint_wm_test_mask = join_labels(test_wm_masks_vol)
+        joint_wm_atlas_mask = join_labels(np.rot90(atlas_wm_masks_vol,k=3,axes=(1, 2)))
+
 
     else:
         atlas_masks_array_list[i] = max_threshold(atlas_masks_array_list[i])
+
+        # strictly for finding COM
+        joint_wm_test_mask = join_labels(test_wm_masks_vol)
+        joint_wm_atlas_mask = join_labels(atlas_wm_masks_vol)
+
+        del test_wm_masks_vol
+        del atlas_wm_masks_vol
+
+
 
 
 
@@ -139,14 +165,14 @@ def prepare_vols_multichan(test_path_list,
     moving_mask_list = []
 
     counter = 0
-    for i in range(0,len(test_mask_path_list)):
+    for i in range(0,label_array.size):
         if not pre_affine_step:
             atlas_mask1_reshaped, test_mask1_reshaped, mask_p_matrix = res_match_and_rescale(atlas_masks_array_list[i],
                                                                                         test_masks_array_list[i],
                                                                                         res_atlas,
                                                                                         res_test_base,
                                                                                         resample_factor,
-                                                                                        res_flip=resolution_flip)
+                                                                                        res_flip=True)
             test_mask1_reshaped = max_threshold(test_mask1_reshaped)
             atlas_mask1_reshaped = max_threshold(atlas_mask1_reshaped)
 
@@ -170,8 +196,8 @@ def prepare_vols_multichan(test_path_list,
         if speed_crop:
             test_mask1_reshaped_foo,atlas_mask1_reshaped,_,_,crop_matrix1,crop_matrix2 = crop_around_COM(test_masks_list_reshaped_cropped_aligned[i],
                                                                                                       atlas_masks_list_reshaped_cropped_aligned[i],
-                                                                                                      test_masks_list_reshaped_cropped_aligned[0],
-                                                                                                      atlas_masks_list_reshaped_cropped_aligned[0],
+                                                                                                      joint_wm_test_mask,
+                                                                                                      joint_wm_atlas_mask,
                                                                                                       tolerance)
 
         test_mask1_reshaped = test_mask1_reshaped_foo
@@ -184,11 +210,11 @@ def prepare_vols_multichan(test_path_list,
         print("BLURRING MASK WITH GAUSSIAN VARIANCE OF: ", gauss_sigma)
         print("-----------------------------------------------------------------------")
 
-        test_mask1_reshaped = gaussian_filter(test_mask1_reshaped, sigma=gauss_sigma)
-        atlas_mask1_reshaped = gaussian_filter(atlas_mask1_reshaped, sigma=gauss_sigma)
+        #test_mask1_reshaped = gaussian_filter(test_mask1_reshaped, sigma=gauss_sigma)
+        #atlas_mask1_reshaped = gaussian_filter(atlas_mask1_reshaped, sigma=gauss_sigma)
 
-        test_mask1_reshaped = max_threshold(test_mask1_reshaped)
-        atlas_mask1_reshaped = max_threshold(atlas_mask1_reshaped)
+        #test_mask1_reshaped = max_threshold(test_mask1_reshaped)
+        #atlas_mask1_reshaped = max_threshold(atlas_mask1_reshaped)
 
 
         [s0, s1, s2] = test_mask1_reshaped.shape
@@ -202,11 +228,11 @@ def prepare_vols_multichan(test_path_list,
             fixed_loss_region[fixed_loss_region > 0] = 1
             moving_loss_region[moving_loss_region > 0] = 1
 
-            fixed_loss_region = al.Image(fixed_loss_region, [s0, s1, s2], [1, 1, 1], [0, 0, 0],dtype=ddtype)
-            moving_loss_region = al.Image(moving_loss_region, [s0, s1, s2], [1, 1, 1], [0, 0, 0],dtype=ddtype)
+            fixed_loss_region = al.Image(fixed_loss_region.astype(np.float32), [s0, s1, s2], [1, 1, 1], [0, 0, 0],dtype=ddtype)
+            moving_loss_region = al.Image(moving_loss_region.astype(np.float32), [s0, s1, s2], [1, 1, 1], [0, 0, 0],dtype=ddtype)
 
-        fixed_mask = al.Image(test_mask1_reshaped, [s0, s1, s2], [1, 1, 1], [0, 0, 0],dtype=ddtype)
-        moving_mask = al.Image(atlas_mask1_reshaped, [s0, s1, s2], [1, 1, 1], [0, 0, 0],dtype=ddtype)
+        fixed_mask = al.Image(test_mask1_reshaped.astype(np.float32), [s0, s1, s2], [1, 1, 1], [0, 0, 0],dtype=ddtype)
+        moving_mask = al.Image(atlas_mask1_reshaped.astype(np.float32), [s0, s1, s2], [1, 1, 1], [0, 0, 0],dtype=ddtype)
         fixed_mask_list.append(fixed_mask)
         moving_mask_list.append(moving_mask)
 
@@ -223,7 +249,7 @@ def prepare_vols_multichan(test_path_list,
                                                                                 res_atlas,
                                                                                 res_test_base,
                                                                                 resample_factor,
-                                                                                res_flip=resolution_flip)
+                                                                                res_flip=True)
 
             atlas_reshaped_aligned,_ = align_COM_masks(test_reshaped,
                                                     atlas_reshaped,
@@ -239,8 +265,8 @@ def prepare_vols_multichan(test_path_list,
         if speed_crop:
             test_reshaped_cropped_foo,atlas_reshaped_cropped_foo,_,_,crop_matrix1,crop_matrix2 = crop_around_COM(test_reshaped,
                                                                                                         atlas_reshaped_aligned,
-                                                                                                        test_masks_list_reshaped_cropped_aligned[0],
-                                                                                                        atlas_masks_list_reshaped_cropped_aligned[0],
+                                                                                                        joint_wm_test_mask,
+                                                                                                        joint_wm_atlas_mask,
                                                                                                         tolerance)
 
         test_reshaped_cropped = test_reshaped_cropped_foo #gaussian_filter(test_reshaped_cropped_foo,sigma=0.1)
