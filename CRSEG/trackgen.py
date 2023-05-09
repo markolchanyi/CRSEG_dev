@@ -32,6 +32,8 @@ bvec_path = args.bvecpath
 case_list_txt = args.caselist
 crop_size = args.cropsize
 output_folder = args.output
+dcm_json_header_path = args.json_header_path
+fsl_preprocess = args.fsl_preprocess
 
 case_list_full = []
 
@@ -83,8 +85,15 @@ for case_path in case_list_full:
 
         ##### Initial MRTRIX calls #####
 
+        ## perform wrapped FSL preprocessing, requires a DICOM header json to get phase-encoding direction
+        if fsl_preprocess:
+            assert dcm_json_header_path != None, 'No DICOM header json file provided. This is required for FSL preprocessing!'
+            print("---------- STARTING FSL PREPROCESSING (Eddy + Motion Correction) -----------")
+            os.system("dwifslpreproc " + os.path.join(scratch_dir,"data.nii.gz") + " " + os.path.join(scratch_dir,"dwi.mif") + " -json_import " + dcm_json_header_path + " -rpe_header -fslgrad " + os.path.join(scratch_dir,"dwi.bvec") + " " + os.path.join(scratch_dir,"dwi.bval"))
+            print("Finished FSL preprocessing!")
+
         ## convert dwi to MIF format
-        if not os.path.exists(os.path.join(scratch_dir,"dwi.mif")):
+        if not os.path.exists(os.path.join(scratch_dir,"dwi.mif")) and not fsl_preprocess:
             os.system("mrconvert " + os.path.join(scratch_dir,"data.nii.gz") + " " + os.path.join(scratch_dir,"dwi.mif") + " -fslgrad " + os.path.join(scratch_dir,"dwi.bvec") + " " + os.path.join(scratch_dir,"dwi.bval") + " -force")
 
 
