@@ -1,18 +1,21 @@
 import sys
 import shutil
 import os
+import re
 import math
 import numpy as np
 import torch as th
-from dipy.io.image import load_nifti, save_nifti
+import nibabel as nib
+import nibabel.processing
 #from crseg_metrics import varifold_distance,mesh,mesh_explicit
 from varifold import mesh,mesh_explicit
 from skimage import morphology, filters
 from scipy.ndimage import gaussian_filter
 from crseg_utils import resample,mean_threshold,crop_around_COM,\
     align_COM_masks,res_match_and_rescale,max_threshold,normalize_volume,\
-    unpad,resize,uncrop_volume
+    unpad,resize,uncrop_volume,join_labels
 from torchmcubes import marching_cubes
+from utils import print_no_newline
 
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath("../airlab/airlab/")))) #add airlab dir to working dir
@@ -104,12 +107,12 @@ def register_multichan(casepath,
         moving_image_levels_list.append(moving_image_pyramid_list)
 
 
-
+    print_no_newline("finished building pyramid... ")
     fixed_loss_region_pyramid = al.create_image_pyramid(fixed_loss_region, [[pyramid_ds[0],pyramid_ds[0],pyramid_ds[0]], [pyramid_ds[1],pyramid_ds[1],pyramid_ds[1]], [pyramid_ds[2],pyramid_ds[2],pyramid_ds[2]]])
     moving_loss_region_pyramid = al.create_image_pyramid(moving_loss_region, [[pyramid_ds[0],pyramid_ds[0],pyramid_ds[0]], [pyramid_ds[1],pyramid_ds[1],pyramid_ds[1]], [pyramid_ds[2],pyramid_ds[2],pyramid_ds[2]]])
     sigma = [[pyramid_sigma[0],pyramid_sigma[0],pyramid_sigma[0]], [pyramid_sigma[1],pyramid_sigma[1],pyramid_sigma[1]], [pyramid_sigma[2],pyramid_sigma[2],pyramid_sigma[2]], [pyramid_sigma[3],pyramid_sigma[3],pyramid_sigma[3]]]
     constant_flow = None
-    print("finished building pyramid...")
+    print("done")
 
 
     for level, (fix_loss_reg_level, mov_loss_reg_level) in enumerate(zip(fixed_loss_region_pyramid, moving_loss_region_pyramid)):
@@ -145,8 +148,7 @@ def register_multichan(casepath,
 
         if use_varifold == True:
             ## create varifold mesh for this pyramid level
-            print("meshing... adjusting mesh spacing to: ", mesh_spacing[level])
-
+            print_no_newline("meshing... ")
 
             moving_verts_list = []
             moving_faces_list = []
@@ -162,8 +164,9 @@ def register_multichan(casepath,
                 fixed_cts_list.append(fixed_cts)
                 fixed_norms_list.append(fixed_norms)
                 mesh_weight += np.max(fixed_norms.shape)
-                print("number of fixed total mesh elements for moving mask ",i, " : ", np.max(moving_faces.shape))
-                print("number of fixed total mesh elements for fixed mask ",i, " : ", np.max(fixed_norms.shape))
+
+            print("done")
+            print("Adjusted mesh spacing to: ", mesh_spacing[level])
 
             mask_weights[level] /= mesh_weight
         else:
@@ -264,14 +267,13 @@ field and saving the binarized propagations..
 
 
 def propagate(label_path,
+          test_wm_seg_path,
+          atlas_wm_mask_path,
           savepath,
-          basepath,
-          savepath_normalized,
+          scratch_dir,
+          atlas_header,
           displacement,
-          test_p_matrix_foo,
-          test_mask_path,
-          atlas_mask_path,
-          dummy_affine,
+          save_affines=[None,None],
           resample_factor=None,
           flip=False,
           overlap=0.5,
@@ -279,28 +281,33 @@ def propagate(label_path,
           rotate_atlas=True,
           r_atlas=0.5,
           r_test=1.0,
-          r_test_base=0.75,
+          r_test_base=1.0,
           speed_crop=True,
           tolerance=[50,50],
           pre_affine_step=True):
 
 
-    print("=================================================================")
-    print("               Beginning label propagation...")
-    print("=================================================================")
+
+    print("Propagating labels...")
 
     # volume extensions to consider
     extensions = ('.nii','.nii.gz','.mgz')
 
+    [save_affine_test,save_affine_atlas] = save_affines
+    ## collect AAN label file names for later concatenation
+    label_name_collector = []
 
     #### set glob params and import stuff ####
-    # set the used data type
     dtype = th.float32
-    # set the device for the computaion to CPU
     device = th.device("cpu")
+    atlas_mask_foo = nib.load(atlas_wm_mask_path)
+    atlas_mask = np.array(atlas_mask_foo.dataobj)
+    # strictly for finding COM
+    #joint_wm_atlas_mask = join_labels(np.rot90(atlas_mask,k=3,axes=(1, 2)))
+    joint_wm_atlas_mask = join_labels(atlas_mask)
 
+    label_path = "/Users/markolchanyi/Desktop/Edlow_Brown/Projects/testing/CRSEG_testing/subject_115320/CRSEG_outputs/wm_outputs/"
 
-    counter = 1
     for subdir, dirs, files in os.walk(label_path):
         for file in files:
             if len(file.split('.')) > 2:
@@ -311,58 +318,12 @@ def propagate(label_path,
             if ext in extensions:
                 print("found: ",os.path.join(subdir, file))
 
-                #####################################################################################
-
-                test_mask, affine_tm = load_nifti(test_mask_path, return_img=False)
-                test_volume_foo = test_mask.copy()
-                pad_shape = test_mask.shape
-
-                atlas_mask,_ = load_nifti(atlas_mask_path, return_img=False)
-
-                if rotate_atlas is True:
-                    atlas_mask = np.rot90(atlas_mask,k=3,axes=(1, 2))
-                    atlas_mask = max_threshold(atlas_mask)
-                else:
-                    atlas_mask = max_threshold(atlas_mask)
-
-
-
-                if not pre_affine_step:
-                    atlas_mask_rescaled, test_mask_rescaled, mask_p_matrix = res_match_and_rescale(atlas_mask,
-                                                                                        test_mask,
-                                                                                        r_atlas,
-                                                                                        r_test_base,
-                                                                                        resample_factor,
-                                                                                        res_flip=resolution_flip)
-
-
-
-
-
-                    test_mask_rescaled= max_threshold(test_mask_rescaled)
-                    atlas_mask_rescaled = max_threshold(atlas_mask_rescaled)
-
-                    aligned_atlas_mask,_ = align_COM_masks(test_mask_rescaled,
-                                                        atlas_mask_rescaled,
-                                                        test_mask_rescaled,
-                                                        atlas_mask_rescaled)
-
-
-                else:
-                    test_mask_rescaled = test_mask
-                    aligned_atlas_mask = atlas_mask
-
-
                 ###### work the input labl #######
-
-                vol, affine_v = load_nifti(os.path.join(subdir, file), return_img=False)
-
+                vol_foo = nib.load(os.path.join(subdir, file))
+                vol = np.array(vol_foo.dataobj)
 
                 if rotate_atlas is True:
                     vol = np.rot90(vol,k=3,axes=(1, 2))
-                    vol = max_threshold(vol)
-                else:
-                    vol = max_threshold(vol)
 
 
                 if not pre_affine_step:
@@ -383,30 +344,24 @@ def propagate(label_path,
                     vol_aligned = vol
 
                 if speed_crop:
-                    _,vol_cropped,_,_,c_mat1,c_mat2 = crop_around_COM(test_mask_rescaled,
+                    _,vol_cropped,_,_,c_mat1,c_mat2 = crop_around_COM(vol_aligned,
                                                                   vol_aligned,
-                                                                  test_mask_rescaled,
-                                                                  aligned_atlas_mask,
+                                                                  joint_wm_atlas_mask,
+                                                                  joint_wm_atlas_mask,
                                                                   tolerance)
 
 
-
+                nib.save(nib.Nifti1Image(vol_cropped,affine=save_affine_test), os.path.join(savepath,file.replace(ext,'_cropped.nii.gz')))
                 #####################################################################################
 
                 [s0, s1, s2] = vol_cropped.shape
-                air_vol = al.Image(vol_cropped, [s0, s1, s2], [1, 1, 1], [0, 0, 0])
-
-
-                # translate moving im to center of mass of PM mask
-                if counter == 1:
-                    empty_vol = np.zeros_like(test_volume_foo)
+                air_vol = al.Image(vol_cropped.astype(np.float32), [s0, s1, s2], [1, 1, 1], [0, 0, 0])
 
                 ### propagate the original volume
                 warped_air_vol = al.transformation.utils.warp_image(air_vol, displacement)
 
                 if speed_crop:
                     vol_uncropped = uncrop_volume(warped_air_vol.numpy(),c_mat1)
-
                 if resolution_flip and not pre_affine_step:
                     warped_vol_unpadded = unpad(vol_uncropped, test_p_matrix)
                     warped_air_vol_ds = resize(warped_vol_unpadded,(pad_shape[0],pad_shape[1],pad_shape[2]),anti_aliasing=True)
@@ -420,22 +375,39 @@ def propagate(label_path,
                 vol_np[vol_np <= overlap] = 0
                 vol_np[vol_np > 0]  = 1
 
-                if not resolution_flip:
-                    vol_np = unpad(vol_np, test_p_matrix)
+                #if not resolution_flip:
+                #    vol_np = unpad(vol_np, test_p_matrix)
 
-                if "_L" not in file:
-                    if "_R" not in file:
-                        print("adding to label volume")
-                        empty_vol[vol_np == 1] = counter
-                        counter += 1
+                #if "_L" not in file:
+                #    if "_R" not in file:
+                #        print("adding to label volume")
+                #        empty_vol[vol_np == 1] = counter
+                #        counter += 1
 
-                save_nifti(savepath + file,vol_np,dummy_affine)
-                os.system("reg_resample -inter 0 -flo " + savepath + file + " -ref " + basepath + "/b0.nii.gz -trans " + basepath + "/scratch/inverse_affine_mat.txt -res " + savepath_normalized + file)
+                #vol_nib = nib.Nifti1Image(vol_np,affine=atlas_mask_foo.affine)
+                nib.save(nib.Nifti1Image(vol_np,affine=save_affine_atlas), os.path.join(savepath,file.replace(ext,'_warped_MNI_space.nii.gz')))
 
-                ######### preliminary dice scores if gold-standard labels exists:
-                gs_file = basepath + "/gold_standard_labels/" + file
-                if os.path.exists(gs_file):
-                    print("GOLD STANDARD LABEL EXISTS: SEE BELOW")
-                    os.system("mri_seg_overlap " + gs_file + " " + savepath_normalized + file)
-                    print("===========================================================================")
-    save_nifti(savepath + "label_volume.nii.gz",empty_vol,dummy_affine)
+                os.system("reg_resample -inter 0 -flo " + os.path.join(savepath,file.replace(ext,'_warped_MNI_space.nii.gz')) + " -ref " + os.path.join(scratch_dir,"b0_test.nii.gz") + " -trans " + os.path.join(scratch_dir,"inverse_affine_mat.txt") + " -res " + os.path.join(savepath,file.replace(ext,'_inverse_transformed.nii.gz')))
+                label_name_collector.append(os.path.join(savepath,file.replace(ext,'_inverse_transformed.nii.gz')))
+
+
+    print_no_newline("creating and saving joint label volume... ")
+    ### collect all transformed labels into a single array and match to dictionary accordingly
+    #aan_label_dict = {1001: 'DR',1002: 'PAG',1003: 'MnR',1004: 'VTA',1005: 'LC_L',2005: 'LC_R',1006: 'LDTg_L',2006: 'LDTg_R',1007: 'PBC_L',2007: 'PBC_R',1008: 'PnO_L',2008: 'PnO_R',1009: 'mRt_L',2009: 'mRt_R',1011: 'PTg_L',2011: 'PTg_R'}
+    aan_label_dict = {1001: 'label_1001',1002: 'label_1002',1003: 'label_1003',1004: 'label_1004',1005: 'label_1005', 1006: 'label_1006', 1007: "label_1007", 2001: 'label_2001',2002: 'label_2002',2003: 'label_2003',2004: 'label_2004',2005: 'label_2005',2006: 'label_2006'}
+
+
+    foovol = nib.load(label_name_collector[0])
+    all_label_vol = np.zeros_like(np.array(foovol.dataobj))
+
+    for lab in label_name_collector:
+        for key, value in aan_label_dict.items():
+            if re.search(value, lab, re.IGNORECASE):
+                label_vol = nib.load(lab)
+                label_vol_np = np.array(label_vol.dataobj)
+                all_label_vol[label_vol_np > 0] = key
+
+
+    all_label_vol_nib = nib.Nifti1Image(all_label_vol,affine=foovol.affine)
+    nib.save(all_label_vol_nib,os.path.join(savepath,"wm_label_volume_transformed.nii.gz"))
+    print("done")

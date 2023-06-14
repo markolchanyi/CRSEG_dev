@@ -5,7 +5,7 @@ import time
 import math
 import numpy as np
 import torch as th
-from dipy.io.image import load_nifti, save_nifti
+import nibabel as nib
 from scipy.ndimage.filters import gaussian_filter
 from scipy.ndimage.interpolation import shift
 from scipy import ndimage, misc
@@ -16,8 +16,7 @@ from scipy import ndimage
 from skimage.transform import rescale, resize, downscale_local_mean
 from scipy import misc
 from scipy.spatial import distance
-from scipy.ndimage.morphology import binary_fill_holes
-from scipy.ndimage.morphology import distance_transform_edt, binary_erosion
+from scipy.ndimage.morphology import binary_fill_holes, distance_transform_edt, binary_erosion
 import ipywidgets as ipyw
 import matplotlib.pyplot as plt
 #matplotlib inline
@@ -128,7 +127,6 @@ def res_match_and_rescale(vol,temp_vol_foo,res,res_temp,resample_factor=None, re
     if resample_factor is not None:
         res_temp *= resample_factor
         temp_vol_foo = rescale(temp_vol_foo, 1/resample_factor, anti_aliasing=True)
-        print("rescaling...")
 
     if res_flip:
         res_match = res_temp/res
@@ -263,10 +261,10 @@ def crop_around_COM(vol1,vol2,brainstem_mask1,brainstem_mask2,tolerance):
     COM2 = COM(brainstem_mask2,0.5)
 
     ###### add explicitly only if there is an affine step in order to better center the brainstem
-    COM1[1] += 15
-    COM2[1] += 15
-    COM1[2] -= 10
-    COM2[2] -= 10
+    #COM1[1] += 15
+    #COM2[1] += 15
+    #COM1[2] -= 10
+    #COM2[2] -= 10
 
     bound1 = np.zeros((3,2))
     bound2 = np.zeros((3,2))
@@ -356,13 +354,11 @@ def align_COM_masks(fvol,mvol,fmask,mmask): # will only roll vol2
 def construct_label_volume(inpdir,outname,ignore=None):
     counter = 1
     for subdir, dirs, files in os.walk(inpdir):
-        print(subdir)
         for file in files:
             filename, file_extension = os.path.splitext(file)
             if filename == ignore:
                 continue
             else:
-                print("starting: ",filename)
                 if counter == 1:
                     vol_tmp, affine_v = load_nifti(os.path.join(subdir, file), return_img=False)
                     vol_empty = np.zeros_like(vol_tmp)
@@ -387,11 +383,8 @@ def template_volume_to_labels(template_path,output_dir,num_labels=80):
         vol_out = np.zeros_like(vol_in)
 
         if i in vol_in:
-            print("starting: ",i)
             vol_out[vol_in == i] = 1
             save_nifti(output_dir + str(i) + ".nii",vol_out,dummy_affine)
-
-    print("done")
 
 
 

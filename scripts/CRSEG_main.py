@@ -80,15 +80,17 @@ def main():
 
 
 
-
-      print("                          RUNNING CRSEG")
-      print("\n ---------------------------------------------------------------")
+      print("\n---------------------------------------------------------------")
+      print("                        *RUNNING CRSEG*                           ")
+      print("---------------------------------------------------------------")
 
 
       ### just to extract a couple values
       label_array = np.load(label_list_path) #load the label list from the CNN and ignore the first entry (0=background)
       label_array = np.delete(label_array, 0)
       label_array = np.delete(label_array, -1)
+
+      print("Found label array has the given vals: ", label_array)
 
 
 
@@ -98,12 +100,13 @@ def main():
       pre_affine_step= True            # run affine if pre-registered volumes do not exist!
       multiplier = 1.0
       rf = None
-      pyramid_ds=[2,2,2]
-      n_iters=[50, 50, 50, 120]
-      regularisation_weight = [30,40,40,500]
-      step_size = [4e-3, 3e-3, 2e-3, 1e-3]
+      pyramid_ds=[8,4,2]
+      n_iters=[100, 100, 50, 50]
+      #n_iters=[2, 2, 2, 2]
+      regularisation_weight = [1,5,10,20]
+      step_size = [4e-3, 2e-3, 1e-3, 5e-4]
       mesh_spacing = [3,3,3,3]
-      weights = [5000,10000,20000,40000]
+      weights = [5000,10000,40000,1000000]
       weights_raw = np.ones(label_array.size)
       crop=True
       crop_tolerance=[50,50]
@@ -111,9 +114,7 @@ def main():
 
       ##############################################################
       ##############################################################
-      print("---- STARTING CRSEG REGISTRATION ON " + fa_path + " ------")
-      print("found " + str(label_array.size) + " WM ROIs as fiducials")
-      test_mask_path_list = []
+      print("found " + str(label_array.size) + " WM ROIs as fiducials in: " + label_list_path)
 
       test_path_list = [fa_path,b0_path] # changed to null gradient compared to atlas T2
       atlas_path_list = [fa_atlas_path,b0_atlas_path]
@@ -145,6 +146,8 @@ def main():
       test_header = b0_test_vol.header
       test_wm_seg_header = test_wm_seg_vol.header
       atlas_header = b0_atlas_vol.header
+      common_affine_test = b0_test_vol.affine   ### use this for saving everything!!
+      common_affine_atlas = b0_atlas_vol.affine   ### use this for saving everything!!
 
       print_no_newline("conforming test volumes...")
       fa_test_vol = nib.processing.conform(fa_test_vol,out_shape=atlas_header.get_data_shape(), voxel_size=atlas_header.get_zooms(), order=3)
@@ -177,7 +180,9 @@ def main():
                                                                                                                                                   wm_seg_path,
                                                                                                                                                   atlas_path_list,
                                                                                                                                                   atlas_wm_seg_path,
+                                                                                                                                                  scratch_dir,
                                                                                                                                                   label_array,
+                                                                                                                                                  save_affine=common_affine_test,
                                                                                                                                                   res_atlas=0.5,
                                                                                                                                                   res_test=1.0,
                                                                                                                                                   speed_crop=True,
@@ -185,26 +190,15 @@ def main():
                                                                                                                                                   tolerance=crop_tolerance)
 
 
-
-      save_nifti(os.path.join(scratch_dir,"f_im_cropped.nii.gz"),fixed_image_list[1].numpy(),dummy_affine)
-      save_nifti(os.path.join(scratch_dir,"m_im_cropped.nii.gz"),moving_image_list[1].numpy(),dummy_affine)
+      nib.save(nib.Nifti1Image(fixed_image_list[1].numpy(),affine=common_affine_test), os.path.join(scratch_dir,"f_im_cropped.nii.gz"))
+      nib.save(nib.Nifti1Image(moving_image_list[1].numpy(),affine=common_affine_test), os.path.join(scratch_dir,"m_im_cropped.nii.gz"))
       for i in range(len(fixed_mask_list)):
-          save_nifti(os.path.join(scratch_dir,"f_mask" + str(i) + ".nii.gz"),fixed_mask_list[i].numpy(),dummy_affine)
-          save_nifti(os.path.join(scratch_dir,"m_mask" + str(i) + ".nii.gz"),moving_mask_list[i].numpy(),dummy_affine)
+          nib.save(nib.Nifti1Image(fixed_mask_list[i].numpy(),affine=common_affine_test), os.path.join(scratch_dir,"f_mask" + str(i) + ".nii.gz"))
+          nib.save(nib.Nifti1Image(moving_mask_list[i].numpy(),affine=common_affine_test), os.path.join(scratch_dir,"m_mask" + str(i) + ".nii.gz"))
 
 
-      savepath = output_path
-      savepath_normalized = output_path + "_normalized/"
-
-      if not os.path.isdir(savepath):
-          os.makedirs(savepath)
-      if not os.path.isdir(savepath_normalized):
-          os.makedirs(savepath_normalized)
-      else:
-          shutil.rmtree(savepath_normalized)
-          os.makedirs(savepath_normalized)
-
-
+      if not os.path.isdir(output_path):
+          os.makedirs(output_path)
       #weights = [0,0,0,0]
       weight_list = [weights_raw*weights[0],weights_raw*weights[1],weights_raw*weights[2],weights_raw*weights[3]]
       num_iters = n_iters
@@ -238,35 +232,27 @@ def main():
                                                                        use_MSE=False,
                                                                        use_Dice=False)
 
-
-
-      save_nifti(os.path.join(scratch_dir,'/warped_original_volume.nii.gz',warped_test_image.numpy(),np.eye(4)))
-      _,dummy_affine = load_nifti(test_path1, return_img=False)
-      foo = 0
+      nib.save(nib.Nifti1Image(warped_test_image.numpy(),affine=b0_atlas_vol.affine), os.path.join(scratch_dir,'warped_original_volume.nii.gz'))
 
 
       propagate(labels_path,
-            savepath,
-            basepath + case,
-            savepath_normalized,
+            wm_seg_path,
+            atlas_wm_seg_path,
+            output_path,
+            scratch_dir,
+            atlas_header,
             displacement_compound_thalamic,
-            foo,
-            test_mask_path_list[0],
-            atlas_mask_path_list[0],
-            dummy_affine,
+            save_affines=[common_affine_test,common_affine_atlas],
             resample_factor=rf,
             r_atlas=0.5,
             r_test=0.5,
             r_test_base=res,
-            resample_input=False,
             rotate_atlas=False,
             flip=False,
             overlap=label_overlap,
             resolution_flip=True,
             speed_crop=True,
             tolerance=crop_tolerance)
-
-      print("\n " + case + " FINISHED!")
 
 
 if __name__ == '__main__':

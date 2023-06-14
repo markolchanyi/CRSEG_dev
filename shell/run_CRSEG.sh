@@ -1,9 +1,9 @@
 python ../scripts/CRSEG_main.py \
 --target_fa_path /Users/markolchanyi/Desktop/Edlow_Brown/Projects/testing/CRSEG_testing/subject_115320/dmri/FA.nii.gz \
 --target_lowb_path /Users/markolchanyi/Desktop/Edlow_Brown/Projects/testing/CRSEG_testing/subject_115320/dmri/lowb.nii.gz \
---atlas_fa_path ../../../Atlases/CRSEG_atlas/FA_0.5mm_BRAINSTEM_CROPPED_LARGE.nii.gz \
---atlas_lowb_path ../../../Atlases/CRSEG_atlas/T2_0.5mm_BRAINSTEM_CROPPED_LARGE.nii.gz \
---atlas_aan_label_directory ../../../Atlases/CRSEG_atlas/AAN_probabalistic_labels_new/AAN_probabalistic_labels_custom_v3/ \
+--atlas_fa_path ../../../Atlases/CRSEG_atlas/FSL_HCP1065_FA_0.5mm_BRAINSTEM_CROPPED.mgz \
+--atlas_lowb_path ../../../Atlases/CRSEG_atlas/T2_0.5mm_BRAINSTEM_CROPPED.mgz \
+--atlas_aan_label_directory ../../../Atlases/CRSEG_atlas/AAN_probabalistic_labels_new/AAN_probabalistic_labels_custom_v5/ \
 --label_list_path /Users/markolchanyi/Desktop/Edlow_Brown/Projects/testing/CRSEG_testing/brainstem_wm_label_list.npy \
 --wm_seg_path /Users/markolchanyi/Desktop/Edlow_Brown/Projects/testing/CRSEG_testing/subject_115320/segs/seg.nii.gz \
 --atlas_wm_seg_path ../../../Atlases/CRSEG_atlas/CRSEG_ROIs.mgz \

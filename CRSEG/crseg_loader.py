@@ -25,7 +25,9 @@ def prepare_vols_multichan(test_path_list,
                        test_WM_mask_path,
                        atlas_path_list,
                        atlas_WM_mask_path,
+                       savepath,
                        label_array,
+                       save_affine=np.eye(4),
                        res_atlas=0.5,
                        res_test=0.75,
                        speed_crop=True,
@@ -63,6 +65,8 @@ def prepare_vols_multichan(test_path_list,
     test_masks_array_list = []
     atlas_masks_array_list = []
 
+    print_no_newline("loading up all volumes for airlab...")
+
     for i in range(0,n_channels):
         test_foo = nib.load(test_path_list[i])
         atlas_foo = nib.load(atlas_path_list[i])
@@ -97,12 +101,12 @@ def prepare_vols_multichan(test_path_list,
     test_wm_masks_header = test_wm_masks_vol.header
     atlas_wm_masks_header = atlas_wm_masks_vol.header
 
+    affine = atlas_wm_masks_vol.affine
+
     # conform WM masks to atlas space, this should be nearest neighbor (0th order)
-    #print_no_newline("conforming test WM masks... ")
     #test_wm_masks_vol = nib.processing.conform(test_wm_masks_vol,out_shape=atlas_wm_masks_header.get_data_shape(), voxel_size=atlas_wm_masks_header.get_zooms(), order=0)
     test_wm_masks_vol = np.array(test_wm_masks_vol.dataobj)
     atlas_wm_masks_vol = np.array(atlas_wm_masks_vol.dataobj)
-    print("done")
 
 
     for i in range(0,label_array.size):
@@ -114,9 +118,12 @@ def prepare_vols_multichan(test_path_list,
         atlas_wm_masks_vol_copy[atlas_wm_masks_vol_copy != label_array[i]] = 0
         atlas_wm_masks_vol_copy[atlas_wm_masks_vol_copy == label_array[i]] = 1
 
-        print("test mask shape is: ", test_wm_masks_vol_copy.shape)
         test_masks_array_list.append(test_wm_masks_vol_copy)
         atlas_masks_array_list.append(atlas_wm_masks_vol_copy)
+
+        ### just for debugging of transformation model
+        atlas_wm_save_vol = nib.Nifti1Image(atlas_wm_masks_vol_copy,affine=affine)
+        nib.save(atlas_wm_save_vol,os.path.join("/Users/markolchanyi/Desktop/Edlow_Brown/Projects/testing/CRSEG_testing/subject_115320/CRSEG_outputs/wm_outputs","label_" + str(label_array[i]) + ".nii.gz"))
 
     del test_wm_masks_vol_copy
     del atlas_wm_masks_vol_copy
@@ -206,9 +213,6 @@ def prepare_vols_multichan(test_path_list,
         #where_objs = morphology.remove_small_objects(test_mask1_reshaped.astype(np.bool_), 5)
         #test_mask1_reshaped[where_objs < 0.5] = 0
         gauss_sigma = 0.25
-        print("-----------------------------------------------------------------------")
-        print("BLURRING MASK WITH GAUSSIAN VARIANCE OF: ", gauss_sigma)
-        print("-----------------------------------------------------------------------")
 
         #test_mask1_reshaped = gaussian_filter(test_mask1_reshaped, sigma=gauss_sigma)
         #atlas_mask1_reshaped = gaussian_filter(atlas_mask1_reshaped, sigma=gauss_sigma)
@@ -275,10 +279,10 @@ def prepare_vols_multichan(test_path_list,
         gauss_sigma = 0.15
         test_reshaped_cropped = gaussian_filter(test_reshaped_cropped, sigma=gauss_sigma)
         #atlas_reshaped_cropped_foo = gaussian_filter(atlas_reshaped_cropped_foo, sigma=gauss_sigma)
-
-        print("number of non-zeros: ", np.count_nonzero(test_reshaped_cropped))
         fixed_image_list.append(al.Image(test_reshaped_cropped.astype(np.float32), [s0, s1, s2], [1, 1, 1], [0, 0, 0],dtype=ddtype))
         moving_image_list.append(al.Image(atlas_reshaped_cropped_foo.astype(np.float32), [s0, s1, s2], [1, 1, 1], [0, 0, 0],dtype=ddtype))
+
+    print(" done")
 
 
 
