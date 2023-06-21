@@ -132,7 +132,7 @@ for case_path in case_list_full:
             os.system("mrconvert " + os.path.join(scratch_dir,"mean_b0.mif") + " " + os.path.join(scratch_dir,"mean_b0.nii.gz") + " -force")
             ## calculate all scalar volumes from tensor fit and move to output
             os.system("dwi2tensor " + os.path.join(scratch_dir,"dwi.mif") + " " + os.path.join(scratch_dir,"dwi_dt.mif"))
-            os.system("tensor2metric " + os.path.join(scratch_dir,"dwi_dt.mif") + "  -fa " + os.path.join(output_dir,"fa_1mm.nii.gz") + " -vector " + os.path.join(output_dir,"v1_1mm.nii.gz") + " -value " + os.path.join(output_dir,"l1_1mm.nii.gz"))
+            os.system("tensor2metric " + os.path.join(scratch_dir,"dwi_dt.mif") + "  -fa " + os.path.join(output_dir,"fa_1mm.nii.gz") + " -vector " + os.path.join(output_dir,"v1_1mm.nii.gz") + " -value " + os.path.join(output_dir,"l1_1mm.nii.gz") + " -force")
         print("done")
 
 
@@ -169,8 +169,13 @@ for case_path in case_list_full:
         brainstem_cntr_arr = np.loadtxt(os.path.join(scratch_dir,"thal_brainstem_cntr_coords.txt"))
         brainstem_cntr_arr_hom = np.append(brainstem_cntr_arr,1.0) ## make homogenous array
         vox2ras_mat = np.loadtxt(os.path.join(scratch_dir,"thal_brainstem_vox2ras.txt"))
-
         ras_cntr = np.matmul(vox2ras_mat,brainstem_cntr_arr_hom.T) ## RAS coordinate transform through nultiplying by transform matrix
+
+        ## crop all invariant volumes to U-Net cropsize
+        print_no_newline("cropping invariant volumes to comply with unet dimensions... ")
+        os.system("mri_convert --crop " + str(round(float(brainstem_cntr_arr[0]))) + " " + str(round(float(brainstem_cntr_arr[1]))) + " " +  str(round(float(brainstem_cntr_arr[2]))) + " --cropsize " + crop_size + " " + crop_size + " " + crop_size + " " + os.path.join(output_dir,'fa_1mm.nii.gz') + " " + os.path.join(output_dir,'fa_1mm_cropped.nii.gz'))
+        os.system("mri_convert --crop " + str(round(float(brainstem_cntr_arr[0]))) + " " + str(round(float(brainstem_cntr_arr[1]))) + " " +  str(round(float(brainstem_cntr_arr[2]))) + " --cropsize " + crop_size + " " + crop_size + " " + crop_size + " " + os.path.join(output_dir,'lowb_1mm.nii.gz') + " " + os.path.join(output_dir,'lowb_1mm_cropped.nii.gz'))
+        print("done")
 
         print_no_newline("creating tractography mask from thal and brainstem labels...")
         track_mask = tractography_mask(os.path.join(scratch_dir,"all_labels.nii"),os.path.join(scratch_dir,'tractography_mask.nii.gz'))
@@ -250,20 +255,16 @@ for case_path in case_list_full:
 
         ### move relevent files back to static directory
         os.system("mv " + os.path.join(scratch_dir,"tracts_concatenated.mif") + " " + output_dir)
-        #os.system("mv " + os.path.join(scratch_dir,"tracts_concatenated_color.mif") + " " + output_dir)
-        #os.system("mrconvert " + os.path.join(output_dir,"tracts_concatenated.mif") + " " + os.path.join(output_dir,"tracts_concatenated.nii.gz") + " -datatype float32")
         #os.system("mrconvert " + os.path.join(output_dir,"tracts_concatenated_color.mif") + " " + os.path.join(output_dir,"tracts_concatenated_color.nii.gz") + " -datatype float32")
-
         os.system("mrgrid " + os.path.join(output_dir,"tracts_concatenated.mif") + " regrid -voxel 1.0 " + os.path.join(output_dir,"tracts_concatenated_1mm.mif" + " -force"))
         os.system("mri_convert --crop " + str(round(float(brainstem_cntr_arr[0]))) + " " + str(round(float(brainstem_cntr_arr[1]))) + " " +  str(round(float(brainstem_cntr_arr[2]))) + " --cropsize " + crop_size + " " + crop_size + " " + crop_size + " " + os.path.join(scratch_dir,'thal_brainstem_union.mgz') + " " + os.path.join(scratch_dir,'thal_brainstem_union_cropped.mgz'))
         #os.system("mrgrid " + os.path.join(output_dir,"tracts_concatenated.mif") + " regrid -template " + os.path.join(scratch_dir,'thal_brainstem_union_cropped.mgz') + " -voxel 1.0 " + os.path.join(output_dir,"tracts_concatenated_1mm_cropped.mif" + " -force"))
         #os.system("mrconvert " + os.path.join(output_dir,"tracts_concatenated_1mm_cropped.mif") + " " + os.path.join(output_dir,"tracts_concatenated_1mm_cropped.nii.gz") + " -datatype float32")
         os.system("mrconvert " + os.path.join(output_dir,"tracts_concatenated_1mm.mif") + " " + os.path.join(output_dir,"tracts_concatenated_1mm.nii.gz") + " -datatype float32 -force")
         os.system("mri_convert --crop " + str(round(float(brainstem_cntr_arr[0]))) + " " + str(round(float(brainstem_cntr_arr[1]))) + " " +  str(round(float(brainstem_cntr_arr[2]))) + " --cropsize " + crop_size + " " + crop_size + " " + crop_size + " " + os.path.join(output_dir,"tracts_concatenated_1mm.nii.gz") + " " + os.path.join(output_dir,"tracts_concatenated_1mm_cropped.nii.gz"))
-        os.system("mri_convert --crop " + str(round(float(brainstem_cntr_arr[0]))) + " " + str(round(float(brainstem_cntr_arr[1]))) + " " +  str(round(float(brainstem_cntr_arr[2]))) + " --cropsize " + crop_size + " " + crop_size + " " + crop_size + " " + os.path.join(output_dir,'fa_1mm.nii.gz') + " " + os.path.join(output_dir,'fa_1mm_cropped.nii.gz'))        
 
         #### delete scratch directory
-        print_no_newline("deleting scratch directory...")
+        print_no_newline("deleting scratch directory... ")
         shutil.rmtree(scratch_dir)
         print("done")
         print("finished case mrtrix and fsl preprocessing \n\n")
