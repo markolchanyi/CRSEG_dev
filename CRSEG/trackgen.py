@@ -36,6 +36,7 @@ output_folder = args.output
 dcm_json_header_path = args.json_header_path
 fsl_preprocess = args.fsl_preprocess
 scrape = args.scrape
+unet_segment = args.unet_segment
 
 case_list_full = []
 
@@ -257,7 +258,10 @@ for case_path in case_list_full:
         print_no_newline("deleting scratch directory...")
         shutil.rmtree(scratch_dir)
         print("done")
-        print("finished case mrtrix and fsl preprocessing \n\n\n\n")
+        print("finished case mrtrix and fsl preprocessing \n\n")
+
+        if unet_segment:
+            print("Starting UNet segmentation of white matter from BSB outputs...")
 
     except:
         traceback.print_exc()
