@@ -25,7 +25,6 @@ def parse_args_mrtrix():
     parser.add_argument('-sc','--scrape',help="Scraping for default DWI, bval and bvec files...not recommended", type=str, default=False, required=False)
     parser.add_argument('-us','--unet_segment',help="Segment out white matter from the tract files", type=str, default=False, required=False)
 
-    tract_file
     return parser.parse_args()
 
 
