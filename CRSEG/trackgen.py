@@ -30,28 +30,30 @@ local_data_path = args.datapath
 bval_path = args.bvalpath
 bvec_path = args.bvecpath
 case_list_txt = args.caselist
+case = args.case
 crop_size = args.cropsize
 output_folder = args.output
 dcm_json_header_path = args.json_header_path
 fsl_preprocess = args.fsl_preprocess
+scrape = args.scrape
 
 case_list_full = []
 
-casefile = open(case_list_txt, "r")
-
-lines = casefile.readlines()
-for index, line in enumerate(lines):
-    case = line.strip()
-    case_list_full.append(os.path.join(basepath + case))
-casefile.close()
+if case_list_txt == None:
+    case_list_full.append(os.path.join(basepath,case))
+else:
+    casefile = open(case_list_txt, "r")
+    lines = casefile.readlines()
+    for index, line in enumerate(lines):
+        case = line.strip()
+        case_list_full.append(os.path.join(basepath,case))
+    casefile.close()
 
 for case_path in case_list_full:
-
     try:
         print("============================================================")
         print("STARTING: ", case_path)
         print("============================================================")
-
 
         letters = string.ascii_lowercase
         scratch_str = "temp_" + ''.join(random.choice(letters) for i in range(10))
@@ -73,13 +75,19 @@ for case_path in case_list_full:
             shutil.rmtree(output_dir)
             os.makedirs(output_dir)
 
-        if not os.path.exists(os.path.join(scratch_dir,"data.nii.gz")):
-            case = os.path.basename(case_path)
-            os.system("rsync -av " + os.path.join(args.basepath,os.path.basename(case_path),args.datapath) + " " + os.path.join(scratch_dir,"data.nii.gz"))
-        if not os.path.exists(os.path.join(scratch_dir,"dwi.bval")):
-            os.system("rsync -av " + os.path.join(args.basepath,os.path.basename(case_path),args.bvalpath) + " " + os.path.join(scratch_dir,"dwi.bval"))
-        if not os.path.exists(os.path.join(scratch_dir,"dwi.bvec")):
-            os.system("rsync -av " + os.path.join(args.basepath,os.path.basename(case_path),args.bvecpath) + " " + os.path.join(scratch_dir,"dwi.bvec"))
+        if scrape:
+            print("basic scraping for raw DWI file, as well as bval and bvec files...")
+            for file in os.listdir(r'F:'):
+                if file == "dwi.nii.gz" or file == "data.nii.gz":
+                       print(os.path.join(r'F:', file))
+        else:
+            if not os.path.exists(os.path.join(scratch_dir,"data.nii.gz")):
+                case = os.path.basename(case_path)
+                os.system("rsync -av " + os.path.join(case_path,args.datapath) + " " + os.path.join(scratch_dir,"data.nii.gz"))
+            if not os.path.exists(os.path.join(scratch_dir,"dwi.bval")):
+                os.system("rsync -av " + os.path.join(case_path,args.bvalpath) + " " + os.path.join(scratch_dir,"dwi.bval"))
+            if not os.path.exists(os.path.join(scratch_dir,"dwi.bvec")):
+                os.system("rsync -av " + os.path.join(case_path,args.bvecpath) + " " + os.path.join(scratch_dir,"dwi.bvec"))
 
 
 
@@ -87,9 +95,12 @@ for case_path in case_list_full:
 
         ## perform wrapped FSL preprocessing, requires a DICOM header json to get phase-encoding direction
         if fsl_preprocess:
-            assert dcm_json_header_path != None, 'No DICOM header json file provided. This is required for FSL preprocessing!'
-            print("---------- STARTING FSL PREPROCESSING (Eddy + Motion Correction) -----------")
-            os.system("dwifslpreproc " + os.path.join(scratch_dir,"data.nii.gz") + " " + os.path.join(scratch_dir,"dwi.mif") + " -json_import " + dcm_json_header_path + " -rpe_header -fslgrad " + os.path.join(scratch_dir,"dwi.bvec") + " " + os.path.join(scratch_dir,"dwi.bval"))
+            #assert dcm_json_header_path != None, 'No DICOM header json file provided. This is required for FSL preprocessing!'
+            if dcm_json_header_path != None:
+                print("---------- STARTING FSL PREPROCESSING (Eddy + Motion Correction) -----------")
+                os.system("dwifslpreproc " + os.path.join(scratch_dir,"data.nii.gz") + " " + os.path.join(scratch_dir,"dwi.mif") + " -json_import " + dcm_json_header_path + " -rpe_header -fslgrad " + os.path.join(scratch_dir,"dwi.bvec") + " " + os.path.join(scratch_dir,"dwi.bval"))
+            else:
+                print("no header provided, performing nieve preprocessing (not recommended)...")
             print("Finished FSL preprocessing!")
 
         ## convert dwi to MIF format
@@ -126,12 +137,13 @@ for case_path in case_list_full:
         if not os.path.exists(samseg_path + "seg.mgz"):
             os.system("run_samseg -i " + os.path.join(scratch_dir,"mean_b0.nii.gz") + " -o " + samseg_path + " --threads 8")
 
-
+        ###########################
         thal_labels = [10,49]
         DC_labels = [28,60]
         cort_labels = [18,54]
         CB_labels = [7,46]
         brainstem_label = 16
+        ###########################
 
         print_no_newline("extracting subcortical samseg labels...")
         ## special dilation and overlap with dilated cortical label to get most anterior portion of DC
@@ -194,7 +206,8 @@ for case_path in case_list_full:
             os.system("mrconvert " + os.path.join(scratch_dir,"brainstem.nii") + " " + os.path.join(scratch_dir,"brainstem.mif") + " -force")
 
             print_no_newline("performing intersection of dilated amyg and DC SAMSEG labels...")
-            morpho_amount = int(5/vox_resolution)
+            #morpho_amount = int(5/vox_resolution)
+            morpho_amount = 4
             print("morphing by " + str(morpho_amount) + " voxels")
 
             os.system("maskfilter " + os.path.join(scratch_dir,"DC.mif") + " dilate -npass " + str(morpho_amount) + " " + os.path.join(scratch_dir,"DC.mif") + " -force")
@@ -207,14 +220,13 @@ for case_path in case_list_full:
         ##### probabilistic tract generation #####
         if not os.path.exists(os.path.join(scratch_dir,"tracts_thal.tck")):
             print("starting tracking on thal.mif")
-            os.system("tckgen -algorithm iFOD2 -angle 50 -select 100000 -seed_image " + os.path.join(scratch_dir,"thal.mif") + " -include " + os.path.join(scratch_dir,"brainstem.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"tracts_thal.tck") + " -mask " + os.path.join(scratch_dir,'tractography_mask.nii.gz') + " -max_attempts_per_seed 750 -trials 750 -force -nthreads 10")
+            os.system("tckgen -algorithm iFOD2 -angle 50 -select 100000 -seed_image " + os.path.join(scratch_dir,"thal.mif") + " -include " + os.path.join(scratch_dir,"brainstem.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"tracts_thal.tck") + " -mask " + os.path.join(scratch_dir,'tractography_mask.nii.gz') + " -max_attempts_per_seed 750 -trials 750 -force -nthreads 20")
         if not os.path.exists(os.path.join(scratch_dir,"tracts_DC.tck")):
             print("starting tracking on DC.mif")
-            os.system("tckgen -algorithm iFOD2 -angle 50 -select 100000 -seed_image " + os.path.join(scratch_dir,"DC.mif") + " -include " + os.path.join(scratch_dir,"brainstem.mif") + " -exclude " + os.path.join(scratch_dir,"CB.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"tracts_DC.tck") + " -mask " + os.path.join(scratch_dir,'tractography_mask.nii.gz') + " -max_attempts_per_seed 750 -trials 750 -force -nthreads 10")
+            os.system("tckgen -algorithm iFOD2 -angle 50 -select 100000 -seed_image " + os.path.join(scratch_dir,"DC.mif") + " -include " + os.path.join(scratch_dir,"brainstem.mif") + " -exclude " + os.path.join(scratch_dir,"CB.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"tracts_DC.tck") + " -mask " + os.path.join(scratch_dir,'tractography_mask.nii.gz') + " -max_attempts_per_seed 750 -trials 750 -force -nthreads 20")
         if not os.path.exists(os.path.join(scratch_dir,"tracts_CB.tck")):
             print("starting tracking on CB.mif")
-            os.system("tckgen -algorithm iFOD2 -angle 50 -select 50000 -seed_image " + os.path.join(scratch_dir,"CB.mif") + " -include " + os.path.join(scratch_dir,"DC.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"tracts_CB.tck") + " -mask " + os.path.join(scratch_dir,'tractography_mask.nii.gz') + " -max_attempts_per_seed 750 -trials 750 -force -nthreads 10")
-
+            os.system("tckgen -algorithm iFOD2 -angle 50 -select 50000 -seed_image " + os.path.join(scratch_dir,"DC.mif") + " -include " + os.path.join(scratch_dir,"CB.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"tracts_CB.tck") + " -mask " + os.path.join(scratch_dir,'tractography_mask.nii.gz') + " -max_attempts_per_seed 750 -trials 750 -force -nthreads 20")
         ##### converting tracts into scalar tract densities
         if not os.path.exists(os.path.join(scratch_dir,"tracts_thal.mif")):
             os.system("tckmap " + os.path.join(scratch_dir,"tracts_thal.tck") + " -template " + os.path.join(scratch_dir,"mean_b0.mif") + " -contrast tdi " + os.path.join(scratch_dir,"tracts_thal.mif") + " -force")
