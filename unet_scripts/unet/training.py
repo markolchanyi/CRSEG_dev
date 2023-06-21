@@ -259,18 +259,16 @@ def train_model(model,
 
         validation_freq.append(n_epochs)
 
-        model.fit_generator(generator,
-                            epochs=n_epochs,
+        model.fit(generator,epochs=n_epochs,
                             steps_per_epoch=n_steps,
                             callbacks=callbacks,
                             initial_epoch=init_epoch,
                             use_multiprocessing=False,
-                            validation_data=validation_generator,
+                            validation_data=tuple(validation_generator),
                             validation_steps=60,
                             validation_freq=validation_freq)
     else:
-        model.fit_generator(generator,
-                            epochs=n_epochs,
+        model.fit(generator,epochs=n_epochs,
                             steps_per_epoch=n_steps,
                             callbacks=callbacks,
                             initial_epoch=init_epoch,

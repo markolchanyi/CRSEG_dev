@@ -9,7 +9,7 @@ top_level_model_dir = '/autofs/space/nicc_003/users/olchanyi/models/CRSEG_unet_m
 
 ## Run specific parameters that will change for ablations
 # Name of the model - link to ablation spreadsheet
-model_name = 'joint_brainstem_model_v2'
+model_name = 'joint_brainstem_model_v5'
 # Fraction of DTI voxels to randomised. Between 0 and 1. Set to 0 to turn off speckle. 1 in 10k sounds right
 speckle_frac_selected=1e-4
 # Flag whether we'll individually rotate the DTI vectors

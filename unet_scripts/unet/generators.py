@@ -233,7 +233,7 @@ def image_seg_generator(training_dir,
         else:
             list_inputs = [item[0] for item in list_inputs]
 
-        yield list_inputs
+        yield tuple(list_inputs)
 
 
 
@@ -560,7 +560,7 @@ def image_seg_generator_rgb(training_dir,
         else:
             list_inputs = [item[0] for item in list_inputs]
 
-        yield list_inputs
+        yield tuple(list_inputs)
 
 
 
@@ -699,7 +699,7 @@ def image_seg_generator_rgb_validation(validation_dir,
         else:
             list_inputs = [item[0] for item in list_inputs]
 
-        yield list_inputs
+        yield tuple(list_inputs)
 
 
 def fast_3D_interp_torch(X, II, JJ, KK, mode):
