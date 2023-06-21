@@ -118,17 +118,21 @@ for case_path in case_list_full:
         single_shell = shell_count <= 2
         print("...single_shell mode is " + str(single_shell))
 
-        if (vox_resolution > 1.3) or (vox_resolution < 1.2):
-            print_no_newline("Resolution is out of bounds!! Regridding dwi to HCP1200 resolution of 1.25mm iso...")
-            os.system("mrgrid " + os.path.join(scratch_dir,"dwi.mif") + " regrid -vox 1.25 " + os.path.join(scratch_dir,"dwi_regridded_HCP.mif") + " -force")
+        if (vox_resolution > 1.05) or (vox_resolution < 0.95):
+            print_no_newline("Resolution is out of bounds!! Regridding dwi to 1mm iso...")
+            os.system("mrgrid " + os.path.join(scratch_dir,"dwi.mif") + " regrid -vox 1.0 " + os.path.join(scratch_dir,"dwi_regridded_1mm.mif") + " -force")
             os.system("rm " + os.path.join(scratch_dir,"dwi.mif"))
-            os.system("mv " + os.path.join(scratch_dir,"dwi_regridded_HCP.mif") + " " + os.path.join(scratch_dir,"dwi.mif"))
+            os.system("mv " + os.path.join(scratch_dir,"dwi_regridded_1mm.mif") + " " + os.path.join(scratch_dir,"dwi.mif"))
             print("done")
         ## extract mean b0 volume
         print_no_newline("extracting temporary b0...")
         if not os.path.exists(os.path.join(scratch_dir,"mean_b0.mif")):
             os.system("dwiextract " + os.path.join(scratch_dir,"dwi.mif") + " - -bzero | mrmath - mean " + os.path.join(scratch_dir,"mean_b0.mif") + " -axis 3 -force")
+            os.system("mrconvert " + os.path.join(scratch_dir,"mean_b0.mif") + " " + os.path.join(output_dir,"lowb_1mm.nii.gz")) # move all relevent volumes to output dir
             os.system("mrconvert " + os.path.join(scratch_dir,"mean_b0.mif") + " " + os.path.join(scratch_dir,"mean_b0.nii.gz") + " -force")
+            ## calculate all scalar volumes from tensor fit and move to output
+            os.system("dwi2tensor " + os.path.join(scratch_dir,"dwi.mif") + " " + os.path.join(scratch_dir,"dwi_dt.mif"))
+            os.system("tensor2metric " + os.path.join(scratch_dir,"dwi_dt.mif") + "  -fa " + os.path.join(output_dir,"fa_1mm.nii.gz") + " -vector " + os.path.join(output_dir,"v1_1mm.nii.gz") + " -value " + os.path.join(output_dir,"l1_1mm.nii.gz"))
         print("done")
 
 
@@ -250,9 +254,13 @@ for case_path in case_list_full:
         #os.system("mrconvert " + os.path.join(output_dir,"tracts_concatenated.mif") + " " + os.path.join(output_dir,"tracts_concatenated.nii.gz") + " -datatype float32")
         #os.system("mrconvert " + os.path.join(output_dir,"tracts_concatenated_color.mif") + " " + os.path.join(output_dir,"tracts_concatenated_color.nii.gz") + " -datatype float32")
 
-        #os.system("mrgrid " + os.path.join(output_dir,"tracts_concatenated.mif") + " regrid -voxel 1.0 " + os.path.join(output_dir,"tracts_concatenated_1mm.mif" + " -force"))
+        os.system("mrgrid " + os.path.join(output_dir,"tracts_concatenated.mif") + " regrid -voxel 1.0 " + os.path.join(output_dir,"tracts_concatenated_1mm.mif" + " -force"))
         os.system("mri_convert --crop " + str(round(float(brainstem_cntr_arr[0]))) + " " + str(round(float(brainstem_cntr_arr[1]))) + " " +  str(round(float(brainstem_cntr_arr[2]))) + " --cropsize " + crop_size + " " + crop_size + " " + crop_size + " " + os.path.join(scratch_dir,'thal_brainstem_union.mgz') + " " + os.path.join(scratch_dir,'thal_brainstem_union_cropped.mgz'))
-        os.system("mrgrid " + os.path.join(output_dir,"tracts_concatenated.mif") + " regrid -template " + os.path.join(scratch_dir,'thal_brainstem_union_cropped.mgz') + " -voxel 1.0 " + os.path.join(output_dir,"tracts_concatenated_1mm_cropped.mif" + " -force"))
+        #os.system("mrgrid " + os.path.join(output_dir,"tracts_concatenated.mif") + " regrid -template " + os.path.join(scratch_dir,'thal_brainstem_union_cropped.mgz') + " -voxel 1.0 " + os.path.join(output_dir,"tracts_concatenated_1mm_cropped.mif" + " -force"))
+        #os.system("mrconvert " + os.path.join(output_dir,"tracts_concatenated_1mm_cropped.mif") + " " + os.path.join(output_dir,"tracts_concatenated_1mm_cropped.nii.gz") + " -datatype float32")
+        os.system("mrconvert " + os.path.join(output_dir,"tracts_concatenated_1mm.mif") + " " + os.path.join(output_dir,"tracts_concatenated_1mm.nii.gz") + " -datatype float32 -force")
+        os.system("mri_convert --crop " + str(round(float(brainstem_cntr_arr[0]))) + " " + str(round(float(brainstem_cntr_arr[1]))) + " " +  str(round(float(brainstem_cntr_arr[2]))) + " --cropsize " + crop_size + " " + crop_size + " " + crop_size + " " + os.path.join(output_dir,"tracts_concatenated_1mm.nii.gz") + " " + os.path.join(output_dir,"tracts_concatenated_1mm_cropped.nii.gz"))
+        os.system("mri_convert --crop " + str(round(float(brainstem_cntr_arr[0]))) + " " + str(round(float(brainstem_cntr_arr[1]))) + " " +  str(round(float(brainstem_cntr_arr[2]))) + " --cropsize " + crop_size + " " + crop_size + " " + crop_size + " " + os.path.join(output_dir,'fa_1mm.nii.gz') + " " + os.path.join(output_dir,'fa_1mm_cropped.nii.gz'))        
 
         #### delete scratch directory
         print_no_newline("deleting scratch directory...")
