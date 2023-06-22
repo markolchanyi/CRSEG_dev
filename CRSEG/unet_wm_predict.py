@@ -114,9 +114,12 @@ def predict(output_path,
 
 
 
-
-output_path =
-lowb_file = 
+model_file = '/autofs/space/nicc_003/users/olchanyi/models/CRSEG_unet_models/joint_brainstem_model_v2/dice_090.h5'
+output_path = '/autofs/space/nicc_003/users/olchanyi/data/HCP_MGH_ADULT/mgh_1001/trackgen_outputs/unet_test'
+lowb_file = '/autofs/space/nicc_003/users/olchanyi/data/HCP_MGH_ADULT/mgh_1001/trackgen_outputs/unet_test/lowb_1mm_cropped.nii.gz'
+fa_file = '/autofs/space/nicc_003/users/olchanyi/data/HCP_MGH_ADULT/mgh_1001/trackgen_outputs/unet_test/fa_1mm_cropped.nii.gz'
+tract_file = '/autofs/space/nicc_003/users/olchanyi/data/HCP_MGH_ADULT/mgh_1001/trackgen_outputs/unet_test/tracts_concatenated_1mm_cropped.nii.gz'
+path_label_list = '/autofs/space/nicc_003/users/olchanyi/data/CRSEG_unet_training_data/7ROI_training_dataset/brainstem_wm_label_list.npy'
 
 predict(output_path,
             lowb_file,
