@@ -61,9 +61,9 @@ for case_path in case_list_full:
         scratch_dir = os.path.join(case_path,scratch_str,"")
         output_dir = os.path.join(case_path,output_folder,"")
         print("All final MRTrix volumes will be dropped in ", output_dir)
-        if os.path.exists(os.path.join(output_dir,"tracts_concatenated_1mm_cropped.mif")):
-            print("MRTRIX outputs already exit...skipping")
-            continue
+        #if os.path.exists(os.path.join(output_dir,"tracts_concatenated_1mm_cropped.mif")):
+        #    print("MRTRIX outputs already exit...skipping")
+        #    continue
 
         print("creating temporary scratch directory ", scratch_dir)
         if not os.path.exists(scratch_dir):
