@@ -82,3 +82,14 @@ def tractography_mask(template_vol_path,output_path):
 
     mask_vol[min_point[0]:max_point[0],min_point[1]:max_point[1],min_point[2]:max_point[2]] = 1
     save_nifti(output_path,mask_vol,aff)
+
+
+def rescale_intensities(vol,factor=5):
+    vol = vol - vol.mean()
+    vol = vol/(factor*vol.std())
+    vol += 0.5
+    #clip
+    vol[vol < 0] = 0
+    vol[vol > 1] = 1
+
+    return vol

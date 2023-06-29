@@ -7,7 +7,7 @@ from predict import predict
 
 
 # keep in list form since you can iterate over multiple sunjects explicitely...implicit will be added soon
-subject_list = ['subject_115320' ,'subject_133019','subject_178950','subject_189450','subject_654754']
+subject_list = ['subject_115320']
 fs_subject_dir = '/autofs/space/nicc_003/users/olchanyi/data/CRSEG_unet_training_data/test_data/'
 # for now...must be
 dataset = 'template'

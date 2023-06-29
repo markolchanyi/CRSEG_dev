@@ -1,9 +1,9 @@
-import os
+import os, sys
 import numpy as np
 from scipy import ndimage
-sys.path.append('/autofs/space/nicc_003/users/olchanyi/CRSEG_dev/unet_scripts/unet')
-import utils as utils
-import models
+sys.path.append('/autofs/space/nicc_003/users/olchanyi/CRSEG_dev/unet_scripts')
+import unet.utils as utils
+import unet.models as models
 
 def predict(output_path,
             lowb_file,
@@ -49,7 +49,7 @@ def predict(output_path,
 
 
     if not os.path.exists(os.path.join(output_path, 'unet_results')):
-        os.mkdir(os.path.join(output_path, 'unet_results'))
+        os.makedirs(os.path.join(output_path, 'unet_results'))
     output_seg_file = os.path.join(output_path, 'unet_results', 'wmunet.seg.mgz')
     output_posteriors_file = os.path.join(output_path, 'unet_results', 'wmunet.posteriors.mgz')
     output_vol_file = os.path.join(output_path, 'unet_results', 'wmunet.vol.npy')
@@ -57,11 +57,10 @@ def predict(output_path,
 
     # Read in and reorient lowb
     lowb, aff, _ = utils.load_volume(lowb_file, im_only=False)
-    print("SIZE OF T1 IS: ", t1.shape)
     lowb, aff2 = utils.align_volume_to_ref(lowb, aff, aff_ref=aff_ref, return_aff=True, n_dims=3)
 
     # If the resolution is not the one the model expected, we need to upsample!
-    if any(abs(np.diag(aff2)[:-1] - resolution_model_file) > 0.1):
+    if any(abs(np.diag(aff2)[:-1] - resolution) > 0.1):
         print('Warning: lowb does not have the resolution that the CNN expects; we need to resample')
         lowb, aff2 = utils.rescale_voxel_size(lowb, aff2, [resolution, resolution, resolution])
 
@@ -116,9 +115,9 @@ def predict(output_path,
 
 model_file = '/autofs/space/nicc_003/users/olchanyi/models/CRSEG_unet_models/joint_brainstem_model_v2/dice_090.h5'
 output_path = '/autofs/space/nicc_003/users/olchanyi/data/HCP_MGH_ADULT/mgh_1001/trackgen_outputs/unet_test'
-lowb_file = '/autofs/space/nicc_003/users/olchanyi/data/HCP_MGH_ADULT/mgh_1001/trackgen_outputs/unet_test/lowb_1mm_cropped.nii.gz'
-fa_file = '/autofs/space/nicc_003/users/olchanyi/data/HCP_MGH_ADULT/mgh_1001/trackgen_outputs/unet_test/fa_1mm_cropped.nii.gz'
-tract_file = '/autofs/space/nicc_003/users/olchanyi/data/HCP_MGH_ADULT/mgh_1001/trackgen_outputs/unet_test/tracts_concatenated_1mm_cropped.nii.gz'
+lowb_file = '/autofs/space/nicc_003/users/olchanyi/data/HCP_MGH_ADULT/mgh_1001/trackgen_outputs/lowb_1mm_cropped_norm.nii.gz'
+fa_file = '/autofs/space/nicc_003/users/olchanyi/data/HCP_MGH_ADULT/mgh_1001/trackgen_outputs/fa_1mm_cropped_norm.nii.gz'
+tract_file = '/autofs/space/nicc_003/users/olchanyi/data/HCP_MGH_ADULT/mgh_1001/trackgen_outputs/tracts_concatenated_1mm_cropped_norm.nii.gz'
 path_label_list = '/autofs/space/nicc_003/users/olchanyi/data/CRSEG_unet_training_data/7ROI_training_dataset/brainstem_wm_label_list.npy'
 
 predict(output_path,

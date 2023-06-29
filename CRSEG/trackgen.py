@@ -7,7 +7,8 @@ import traceback
 import sys
 import numpy as np
 import multiprocessing as mp
-from utils import print_no_newline, parse_args_mrtrix, count_shells, get_header_resolution, tractography_mask
+import nibabel as nib
+from utils import print_no_newline, parse_args_mrtrix, count_shells, get_header_resolution, tractography_mask, rescale_intensities
 
 
 """
@@ -21,16 +22,13 @@ Mark D. Olchanyi -- 03.17.2023
 """
 
 
-
 ##Parser
 args = parse_args_mrtrix()
 #------------------- Required Arguments -------------------
-basepath = args.basepath
 local_data_path = args.datapath
 bval_path = args.bvalpath
 bvec_path = args.bvecpath
 case_list_txt = args.caselist
-case = args.case
 crop_size = args.cropsize
 output_folder = args.output
 dcm_json_header_path = args.json_header_path
@@ -41,7 +39,7 @@ unet_segment = args.unet_segment
 case_list_full = []
 
 if case_list_txt == None:
-    case_list_full.append(os.path.join(basepath,case))
+    case_list_full.append(os.path.)
 else:
     casefile = open(case_list_txt, "r")
     lines = casefile.readlines()
@@ -58,8 +56,8 @@ for case_path in case_list_full:
 
         letters = string.ascii_lowercase
         scratch_str = "temp_" + ''.join(random.choice(letters) for i in range(10))
-        scratch_dir = os.path.join(case_path,scratch_str,"")
-        output_dir = os.path.join(case_path,output_folder,"")
+        scratch_dir = os.path.join(output_folder,scratch_str,"")
+        output_dir = output_folder
         print("All final MRTrix volumes will be dropped in ", output_dir)
         #if os.path.exists(os.path.join(output_dir,"tracts_concatenated_1mm_cropped.mif")):
         #    print("MRTRIX outputs already exit...skipping")
@@ -262,6 +260,31 @@ for case_path in case_list_full:
         #os.system("mrconvert " + os.path.join(output_dir,"tracts_concatenated_1mm_cropped.mif") + " " + os.path.join(output_dir,"tracts_concatenated_1mm_cropped.nii.gz") + " -datatype float32")
         os.system("mrconvert " + os.path.join(output_dir,"tracts_concatenated_1mm.mif") + " " + os.path.join(output_dir,"tracts_concatenated_1mm.nii.gz") + " -datatype float32 -force")
         os.system("mri_convert --crop " + str(round(float(brainstem_cntr_arr[0]))) + " " + str(round(float(brainstem_cntr_arr[1]))) + " " +  str(round(float(brainstem_cntr_arr[2]))) + " --cropsize " + crop_size + " " + crop_size + " " + crop_size + " " + os.path.join(output_dir,"tracts_concatenated_1mm.nii.gz") + " " + os.path.join(output_dir,"tracts_concatenated_1mm_cropped.nii.gz"))
+
+        print_no_newline("rescaling and normalizing all volumes... ")
+        #### normalize all volumes!! (0 mean unitary variance)
+        ####
+        vol_tracts = nib.load(os.path.join(output_dir,"tracts_concatenated_1mm_cropped.nii.gz"))
+        vol_tracts_np = vol_tracts.get_fdata()
+        vol_lowb = nib.load(os.path.join(output_dir,"lowb_1mm_cropped.nii.gz"))
+        vol_lowb_np = vol_lowb.get_fdata()
+        vol_fa = nib.load(os.path.join(output_dir,"fa_1mm_cropped.nii.gz"))
+        vol_fa_np = vol_fa.get_fdata()
+
+        ### rescaling
+        vol_tracts_np_normalized = rescale_intensities(vol_tracts_np,factor=20)
+        vol_lowb_np_normalized = rescale_intensities(vol_lowb_np,factor=5)
+        vol_fa_np_normalized = rescale_intensities(vol_fa_np,factor=5)
+
+        output_img_tracts = nib.Nifti1Image(vol_tracts_np_normalized, vol_tracts.affine, vol_tracts.header)
+        nib.save(output_img_tracts, os.path.join(output_dir,"tracts_concatenated_1mm_cropped_norm.nii.gz"))
+
+        output_img_lowb = nib.Nifti1Image(vol_lowb_np_normalized, vol_lowb.affine, vol_lowb.header)
+        nib.save(output_img_lowb, os.path.join(output_dir,"lowb_1mm_cropped_norm.nii.gz"))
+
+        output_img_fa = nib.Nifti1Image(vol_fa_np_normalized, vol_tracts.affine, vol_tracts.header)
+        nib.save(output_img_fa, os.path.join(output_dir,"fa_1mm_cropped_norm.nii.gz"))
+        print("done")
 
         #### delete scratch directory
         print_no_newline("deleting scratch directory... ")
