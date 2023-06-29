@@ -12,8 +12,8 @@ def print_no_newline(string):
 def parse_args_mrtrix():
     parser = argparse.ArgumentParser(description="Prepares data to run probibalistic tractography. Checks ROI inputs for matching geometry.")
     #------------------- Required Arguments -------------------
-    parser.add_argument('-cl','--caselist', help="Partial case list", type=str, default=None, required=False)
-    parser.add_argument('-c','--case', help="Single Case, default is none", type=str, default=None, required=False)
+    #parser.add_argument('-cl','--caselist', help="Partial case list", type=str, default=None, required=False)
+    #parser.add_argument('-c','--case', help="Single Case, default is none", type=str, default=None, required=False)
     parser.add_argument('-b','--basepath', help="Case case directory", type=str, required=True)
     parser.add_argument('-d','--datapath', help="Local path to original DWI file", type=str, required=True)
     parser.add_argument('-bc','--bvalpath', help="Local path to bval file", type=str, required=True)
