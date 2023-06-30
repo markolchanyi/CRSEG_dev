@@ -13,6 +13,13 @@ from dipy.io.stateful_tractogram import is_header_compatible
 from utils import print_no_newline, parse_args_mrtrix, count_shells, get_header_resolution, tractography_mask, rescale_intensities
 
 
+
+
+def run_tract_parsing():
+
+
+
+
 """
 MrTrix-based probabalistic tractography preprocessing pipeline for brainstem WM bundles
 
@@ -128,7 +135,7 @@ try:
     print_no_newline("extracting temporary b0...")
     if not os.path.exists(os.path.join(scratch_dir,"mean_b0.mif")):
         os.system("dwiextract " + os.path.join(scratch_dir,"dwi.mif") + " - -bzero | mrmath - mean " + os.path.join(scratch_dir,"mean_b0.mif") + " -axis 3 -force")
-        os.system("mrconvert " + os.path.join(scratch_dir,"mean_b0.mif") + " " + os.path.join(output_dir,"lowb_1mm.nii.gz") + " -datatype float32") # move all relevent volumes to output dir
+        os.system("mrconvert " + os.path.join(scratch_dir,"mean_b0.mif") + " " + os.path.join(output_dir,"lowb_1mm.nii.gz")) # move all relevent volumes to output dir
         os.system("mrconvert " + os.path.join(scratch_dir,"mean_b0.mif") + " " + os.path.join(scratch_dir,"mean_b0.nii.gz") + " -datatype float32 -force")
         ## calculate all scalar volumes from tensor fit and move to output
         os.system("dwi2tensor " + os.path.join(scratch_dir,"dwi.mif") + " " + os.path.join(scratch_dir,"dwi_dt.mif"))
@@ -156,7 +163,7 @@ try:
     ## ----------- segment the hypothalamus from the synthSR MPRage -------------- ##
     os.makedirs(os.path.join(scratch_dir,"hypothalamic_seg"))
     os.system("mri_segment_hypothalamic_subunits --i " + os.path.join(scratch_dir,"mean_b0_synthsr.nii.gz") + " --o " + os.path.join(scratch_dir,"hypothalamic_seg") + " --threads 10 --cpu")
-    
+
 
 
     ###########################
@@ -181,13 +188,13 @@ try:
     os.system("mri_binarize --noverbose --i " + os.path.join(scratch_dir,"brainstem_subfields","brainstemSsLabels.FSvoxelSpace.mgz") + " --o " + os.path.join(scratch_dir,"midbrain.nii") + " --match " + str(midbrain_label))
     os.system("mri_binarize --noverbose --i " + os.path.join(scratch_dir,"brainstem_subfields","brainstemSsLabels.FSvoxelSpace.mgz") + " --o " + os.path.join(scratch_dir,"pons.nii") + " --match " + str(pons_label))
     os.system("mri_binarize --noverbose --i " + os.path.join(scratch_dir,"brainstem_subfields","brainstemSsLabels.FSvoxelSpace.mgz") + " --o " + os.path.join(scratch_dir,"medulla.nii") + " --match " + str(medulla_label))
-    os.system("mri_binarize --noverbose --i " + os.path.join(scratch_dir,"brainstem_subfields","brainstemSsLabels.FSvoxelSpace.mgz") + " --o " + os.path.join(output_dir,"hypothal.nii") + " --match " + str(hypothal_labels[0]) + " " + str(hypothal_labels[1]) + " " + str(hypothal_labels[2]) + " " + str(hypothal_labels[3]) + " " + str(hypothal_labels[4]) + " " + str(hypothal_labels[5]) + " " + str(hypothal_labels[6]) + " " + str(hypothal_labels[7]) + " " + str(hypothal_labels[8]) + " " + str(hypothal_labels[9]))
+    os.system("mri_binarize --noverbose --i " + os.path.join(scratch_dir,"hypothalamic_seg","mean_b0_synthsr_hypo_seg.nii.gz") + " --o " + os.path.join(scratch_dir,"hypothal.nii") + " --match " + str(hypothal_labels[0]) + " " + str(hypothal_labels[1]) + " " + str(hypothal_labels[2]) + " " + str(hypothal_labels[3]) + " " + str(hypothal_labels[4]) + " " + str(hypothal_labels[5]) + " " + str(hypothal_labels[6]) + " " + str(hypothal_labels[7]) + " " + str(hypothal_labels[8]) + " " + str(hypothal_labels[9]))
     print("done")
 
 
     ## get centroid voxel coordinates of union of thalamic and brainstem masks to obtain bounding box location for smaller ROI for the U-net.
-    os.system("mri_binarize --noverbose --i " + os.path.join(samseg_path,"seg.mgz") + " --o " + os.path.join(scratch_dir,'thal_brainstem_union.mgz') + " --match " + str(brainstem_label) + " " + str(thal_labels[0]) + " " + str(thal_labels[1]))
     os.system("mri_binarize --noverbose --i " + os.path.join(samseg_path,"seg.mgz ") + " --o " + os.path.join(scratch_dir,"all_labels.nii") + " --match " + str(thal_labels[0]) + " " + str(thal_labels[1]) + " " + str(DC_labels[0]) + " " + str(DC_labels[1]) + " " + str(CB_labels[0]) + " " + str(CB_labels[1]) + " " + str(brainstem_label))
+    os.system("mrmath " + os.path.join(scratch_dir,"all_labels.nii") + " -add " + os.path.join(scratch_dir,"medulla.nii") + " -add " + os.path.join(scratch_dir,"hypothal.nii") + " " + os.path.join(scratch_dir,"all_labels_medulla_hypothal.nii.gz"))
     os.system("mrcentroid -voxelspace " + os.path.join(scratch_dir,'thal_brainstem_union.mgz') + " > " + os.path.join(scratch_dir,"thal_brainstem_cntr_coords.txt"))
     os.system("mri_info --vox2ras " + os.path.join(scratch_dir,'thal_brainstem_union.mgz') + " > " + os.path.join(scratch_dir,"thal_brainstem_vox2ras.txt"))
 
@@ -204,6 +211,7 @@ try:
 
     print_no_newline("creating tractography mask from thal and brainstem labels...")
     track_mask = tractography_mask(os.path.join(scratch_dir,"all_labels.nii"),os.path.join(scratch_dir,'tractography_mask.nii.gz'))
+    track_mask_medulla_hypothal = tractography_mask(os.path.join(scratch_dir,"all_labels_medulla_hypothal.nii.gz"),os.path.join(scratch_dir,'tractography_mask_medulla_hypothal.nii.gz'))
     print("done")
 
     ## -------- extract brain mask --------- ##
@@ -233,6 +241,8 @@ try:
             os.system("mtnormalise " + os.path.join(scratch_dir,"wmfod.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"gmfod.mif") + " " + os.path.join(scratch_dir,"gmfod_norm.mif") + " " + os.path.join(scratch_dir,"csffod.mif") + " " + os.path.join(scratch_dir,"csffod_norm.mif") + " -mask " + os.path.join(scratch_dir,"brain_mask.mif") + " -force")
         else:
             os.system("mtnormalise " + os.path.join(scratch_dir,"wmfod.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " -mask " + os.path.join(scratch_dir,"brain_mask.mif") + " -force")
+
+
     ##### convert ROIs into MIFs #####
     if not os.path.exists(os.path.join(scratch_dir,"brainstem.mif")) or not os.path.exists(os.path.join(scratch_dir,"CB.mif")) or not os.path.exists(os.path.join(scratch_dir,"DC.mif")) or not os.path.exists(os.path.join(scratch_dir,"thal.mif")):
         os.system("mrconvert " + os.path.join(scratch_dir,"thal.nii") + " " + os.path.join(scratch_dir,"thal.mif") + " -force")
@@ -240,6 +250,13 @@ try:
         os.system("mrconvert " + os.path.join(scratch_dir,"cort.nii") + " " + os.path.join(scratch_dir,"cort.mif") + " -force")
         os.system("mrconvert " + os.path.join(scratch_dir,"CB.nii") + " " + os.path.join(scratch_dir,"CB.mif") + " -force")
         os.system("mrconvert " + os.path.join(scratch_dir,"brainstem.nii") + " " + os.path.join(scratch_dir,"brainstem.mif") + " -force")
+        os.system("mrconvert " + os.path.join(scratch_dir,"midbrain.nii") + " " + os.path.join(scratch_dir,"midbrain.mif") + " -force")
+        os.system("mrconvert " + os.path.join(scratch_dir,"pons.nii") + " " + os.path.join(scratch_dir,"pons.mif") + " -force")
+        os.system("mrconvert " + os.path.join(scratch_dir,"medulla.nii") + " " + os.path.join(scratch_dir,"medulla.mif") + " -force")
+        os.system("mrconvert " + os.path.join(scratch_dir,"hypothal.nii") + " " + os.path.join(scratch_dir,"hypothal.mif") + " -force")
+
+        shutil.copy(os.path.join(scratch_dir,"hypothal.nii"),os.path.join(output_dir,"hypothal.nii"))
+        shutil.copy(os.path.join(scratch_dir,'tractography_mask_medulla_hypothal.nii.gz'),os.path.join(output_dir,'tractography_mask_medulla_hypothal.nii.gz'))
 
         print_no_newline("performing intersection of dilated amyg and DC SAMSEG labels...")
         #morpho_amount = int(5/vox_resolution)
@@ -253,7 +270,23 @@ try:
         os.system("mrcalc " + os.path.join(scratch_dir,"DC.mif") + " " + os.path.join(scratch_dir,"cort.mif") + " -mult " + os.path.join(scratch_dir,"DC.mif") + " -force")
         print("done")
 
-    ##### probabilistic tract generation #####
+
+
+    ## ------------- probabilistic tract generation for new volumes volumes ------------- ##
+    if not os.path.exists(os.path.join(scratch_dir,"tracts_thal.tck")):
+        print("starting tracking on thal.mif")
+        os.system("tckgen -algorithm iFOD2 -angle 50 -select 50000 -seed_image " + os.path.join(scratch_dir,"hypothal.mif") + " -include " + os.path.join(scratch_dir,"pons.mif") + " -include " + os.path.join(scratch_dir,"medulla.mif") + " -exclude " + os.path.join(scratch_dir,"CB.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"tracts_hypothal.tck") + " -mask " + os.path.join(scratch_dir,'tractography_mask_medulla_hypothal.nii.gz') + " -max_attempts_per_seed 750 -trials 750 -force -nthreads 20")
+    if not os.path.exists(os.path.join(scratch_dir,"tracts_DC.tck")):
+        print("starting tracking on DC.mif")
+        os.system("tckgen -algorithm iFOD2 -angle 50 -select 50000 -seed_image " + os.path.join(scratch_dir,"thal.mif") + " -include " + os.path.join(scratch_dir,"pons.mif") + " -include " + os.path.join(scratch_dir,"medulla.mif") + " -exclude " + os.path.join(scratch_dir,"CB.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"tracts_pons.tck") + " -mask " + os.path.join(scratch_dir,'tractography_mask_medulla_hypothal.nii.gz') + " -max_attempts_per_seed 750 -trials 750 -force -nthreads 20")
+    if not os.path.exists(os.path.join(scratch_dir,"tracts_CB.tck")):
+        print("starting tracking on CB.mif")
+        os.system("tckgen -algorithm iFOD2 -angle 50 -select 50000 -seed_image " + os.path.join(scratch_dir,"hypothal.mif") + " -exclude " + os.path.join(scratch_dir,"medulla.mif") + " -include " + os.path.join(scratch_dir,"midbrain.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"tracts_midbrain.tck") + " -mask " + os.path.join(scratch_dir,'tractography_mask_medulla_hypothal.nii.gz') + " -max_attempts_per_seed 750 -trials 750 -force -nthreads 20")
+
+
+
+
+    ## ------------- probabilistic tract generation for original volumes ------------- ##
     if not os.path.exists(os.path.join(scratch_dir,"tracts_thal.tck")):
         print("starting tracking on thal.mif")
         os.system("tckgen -algorithm iFOD2 -angle 50 -select 100000 -seed_image " + os.path.join(scratch_dir,"thal.mif") + " -include " + os.path.join(scratch_dir,"brainstem.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"tracts_thal.tck") + " -mask " + os.path.join(scratch_dir,'tractography_mask.nii.gz') + " -max_attempts_per_seed 750 -trials 750 -force -nthreads 20")
@@ -263,6 +296,7 @@ try:
     if not os.path.exists(os.path.join(scratch_dir,"tracts_CB.tck")):
         print("starting tracking on CB.mif")
         os.system("tckgen -algorithm iFOD2 -angle 50 -select 50000 -seed_image " + os.path.join(scratch_dir,"DC.mif") + " -include " + os.path.join(scratch_dir,"CB.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"tracts_CB.tck") + " -mask " + os.path.join(scratch_dir,'tractography_mask.nii.gz') + " -max_attempts_per_seed 750 -trials 750 -force -nthreads 20")
+
 
 
 
@@ -284,29 +318,58 @@ try:
     if not os.path.exists(os.path.join(scratch_dir,"tracts_CB.mif")):
         os.system("tckmap " + os.path.join(scratch_dir,"tracts_CB.tck") + " -template " + os.path.join(scratch_dir,"mean_b0.mif") + " -contrast tdi " + os.path.join(scratch_dir,"tracts_CB.mif") + " -force")
 
+    ##### converting tracts into scalar tract densities
+    if not os.path.exists(os.path.join(scratch_dir,"tracts_thal.mif")):
+        os.system("tckmap " + os.path.join(scratch_dir,"tracts_hypothal.tck") + " -template " + os.path.join(scratch_dir,"mean_b0.mif") + " -contrast tdi " + os.path.join(scratch_dir,"tracts_hypothal.mif") + " -force")
+    if not os.path.exists(os.path.join(scratch_dir,"tracts_DC.mif")):
+        os.system("tckmap " + os.path.join(scratch_dir,"tracts_pons.tck") + " -template " + os.path.join(scratch_dir,"mean_b0.mif") + " -contrast tdi " + os.path.join(scratch_dir,"tracts_pons.mif") + " -force")
+    if not os.path.exists(os.path.join(scratch_dir,"tracts_CB.mif")):
+        os.system("tckmap " + os.path.join(scratch_dir,"tracts_midbrain.tck") + " -template " + os.path.join(scratch_dir,"mean_b0.mif") + " -contrast tdi " + os.path.join(scratch_dir,"tracts_midbrain.mif") + " -force")
+
     ### perform tract-wise histrogram normalization. matched with the CB tract map. Syntax is | type | input | target | output
     os.system("mrhistmatch linear " + os.path.join(scratch_dir,"tracts_CB.mif") + " " + os.path.join(scratch_dir,"tracts_thal.mif") + " " + os.path.join(scratch_dir,"tracts_CB_matched.mif") + " -force")
     os.system("mrhistmatch linear " + os.path.join(scratch_dir,"tracts_DC.mif") + " " + os.path.join(scratch_dir,"tracts_thal.mif") + " " + os.path.join(scratch_dir,"tracts_DC_matched.mif") + " -force")
+
+    ### perform tract-wise histrogram normalization. matched with the CB tract map. Syntax is | type | input | target | output
+    os.system("mrhistmatch linear " + os.path.join(scratch_dir,"tracts_pons.mif") + " " + os.path.join(scratch_dir,"tracts_hypothal.mif") + " " + os.path.join(scratch_dir,"tracts_pons_matched.mif") + " -force")
+    os.system("mrhistmatch linear " + os.path.join(scratch_dir,"tracts_midbrain.mif") + " " + os.path.join(scratch_dir,"tracts_hypothal.mif") + " " + os.path.join(scratch_dir,"tracts_midbrain_matched.mif") + " -force")
+
+
 
     ### turn into color map
     os.system("mrcat " + os.path.join(scratch_dir,"tracts_thal.mif") + " " + os.path.join(scratch_dir,"tracts_CB_matched.mif") + " " + os.path.join(scratch_dir,"tracts_DC_matched.mif") + " " + os.path.join(scratch_dir,"tracts_concatenated.mif") + " -force")
     os.system("mrcolour " + os.path.join(scratch_dir,"tracts_concatenated.mif") + " rgb " + os.path.join(scratch_dir,"tracts_concatenated_color.mif") + " -force")
 
+    ### turn into color map
+    os.system("mrcat " + os.path.join(scratch_dir,"tracts_hypothal.mif") + " " + os.path.join(scratch_dir,"tracts_pons_matched.mif") + " " + os.path.join(scratch_dir,"tracts_midbrain_matched.mif") + " " + os.path.join(scratch_dir,"tracts_concatenated_new.mif") + " -force")
+    os.system("mrcolour " + os.path.join(scratch_dir,"tracts_concatenated.mif") + " rgb " + os.path.join(scratch_dir,"tracts_concatenated_color.mif") + " -force")
+
+
+
+
     ### move relevent files back to static directory
     os.system("mv " + os.path.join(scratch_dir,"tracts_concatenated.mif") + " " + output_dir)
-    #os.system("mrconvert " + os.path.join(output_dir,"tracts_concatenated_color.mif") + " " + os.path.join(output_dir,"tracts_concatenated_color.nii.gz") + " -datatype float32")
     os.system("mrgrid " + os.path.join(output_dir,"tracts_concatenated.mif") + " regrid -voxel 1.0 " + os.path.join(output_dir,"tracts_concatenated_1mm.mif" + " -force"))
     os.system("mri_convert --crop " + str(round(float(brainstem_cntr_arr[0]))) + " " + str(round(float(brainstem_cntr_arr[1]))) + " " +  str(round(float(brainstem_cntr_arr[2]))) + " --cropsize " + crop_size + " " + crop_size + " " + crop_size + " " + os.path.join(scratch_dir,'thal_brainstem_union.mgz') + " " + os.path.join(scratch_dir,'thal_brainstem_union_cropped.mgz'))
-    #os.system("mrgrid " + os.path.join(output_dir,"tracts_concatenated.mif") + " regrid -template " + os.path.join(scratch_dir,'thal_brainstem_union_cropped.mgz') + " -voxel 1.0 " + os.path.join(output_dir,"tracts_concatenated_1mm_cropped.mif" + " -force"))
-    #os.system("mrconvert " + os.path.join(output_dir,"tracts_concatenated_1mm_cropped.mif") + " " + os.path.join(output_dir,"tracts_concatenated_1mm_cropped.nii.gz") + " -datatype float32")
     os.system("mrconvert " + os.path.join(output_dir,"tracts_concatenated_1mm.mif") + " " + os.path.join(output_dir,"tracts_concatenated_1mm.nii.gz") + " -datatype float32 -force")
     os.system("mri_convert --crop " + str(round(float(brainstem_cntr_arr[0]))) + " " + str(round(float(brainstem_cntr_arr[1]))) + " " +  str(round(float(brainstem_cntr_arr[2]))) + " --cropsize " + crop_size + " " + crop_size + " " + crop_size + " " + os.path.join(output_dir,"tracts_concatenated_1mm.nii.gz") + " " + os.path.join(output_dir,"tracts_concatenated_1mm_cropped.nii.gz"))
+
+
+    ### move relevent files back to static directory
+    os.system("mv " + os.path.join(scratch_dir,"tracts_concatenated_new.mif") + " " + output_dir)
+    os.system("mrgrid " + os.path.join(output_dir,"tracts_concatenated_new.mif") + " regrid -voxel 1.0 " + os.path.join(output_dir,"tracts_concatenated_new_1mm.mif" + " -force"))
+    os.system("mrconvert " + os.path.join(output_dir,"tracts_concatenated_new_1mm.mif") + " " + os.path.join(output_dir,"tracts_concatenated_new_1mm.nii.gz") + " -datatype float32 -force")
+    os.system("mri_convert --crop " + str(round(float(brainstem_cntr_arr[0]))) + " " + str(round(float(brainstem_cntr_arr[1]))) + " " +  str(round(float(brainstem_cntr_arr[2]))) + " --cropsize " + crop_size + " " + crop_size + " " + crop_size + " " + os.path.join(output_dir,"tracts_concatenated_new_1mm.nii.gz") + " " + os.path.join(output_dir,"tracts_concatenated_new_1mm_cropped.nii.gz"))
+
+
 
     print_no_newline("rescaling and normalizing all volumes... ")
     #### normalize all volumes!! (0 mean unitary variance)
     ####
     vol_tracts = nib.load(os.path.join(output_dir,"tracts_concatenated_1mm_cropped.nii.gz"))
     vol_tracts_np = vol_tracts.get_fdata()
+    vol_tracts_new = nib.load(os.path.join(output_dir,"tracts_concatenated_new_1mm_cropped.nii.gz"))
+    vol_tracts_new_np = vol_tracts_new.get_fdata()
     vol_lowb = nib.load(os.path.join(output_dir,"lowb_1mm_cropped.nii.gz"))
     vol_lowb_np = vol_lowb.get_fdata()
     vol_fa = nib.load(os.path.join(output_dir,"fa_1mm_cropped.nii.gz"))
