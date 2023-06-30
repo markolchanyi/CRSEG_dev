@@ -14,7 +14,7 @@ def parse_args_mrtrix():
     #------------------- Required Arguments -------------------
     #parser.add_argument('-cl','--caselist', help="Partial case list", type=str, default=None, required=False)
     #parser.add_argument('-c','--case', help="Single Case, default is none", type=str, default=None, required=False)
-    parser.add_argument('-b','--basepath', help="Case case directory", type=str, required=True)
+    #parser.add_argument('-b','--basepath', help="Case case directory", type=str, required=True)
     parser.add_argument('-d','--datapath', help="Local path to original DWI file", type=str, required=True)
     parser.add_argument('-bc','--bvalpath', help="Local path to bval file", type=str, required=True)
     parser.add_argument('-bv','--bvecpath', help="Local path to bvec file", type=str, required=True)
@@ -73,7 +73,8 @@ def get_header_resolution(dwi_json_path):
 
 def tractography_mask(template_vol_path,output_path):
     template_vol,aff = load_nifti(template_vol_path, return_img=False)
-    mask_vol = np.zeros_like(template_vol,dtype=int)
+    template_vol = np.asarray(template_vol, dtype=np.int32)
+    mask_vol = np.zeros_like(template_vol,dtype=np.int32)
 
     label_coords=np.argwhere(template_vol==1)
 

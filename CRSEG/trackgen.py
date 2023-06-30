@@ -8,6 +8,8 @@ import sys
 import numpy as np
 import multiprocessing as mp
 import nibabel as nib
+from dipy.io.streamline import load_tractogram, save_tractogram
+from dipy.io.stateful_tractogram import is_header_compatible
 from utils import print_no_newline, parse_args_mrtrix, count_shells, get_header_resolution, tractography_mask, rescale_intensities
 
 
@@ -49,9 +51,9 @@ unet_segment = args.unet_segment
 
 try:
     print("============================================================")
-    print("STARTING TRACKEGN \n" + "DWI FILE: " local_data_path + "\n")
-    print("STARTING TRACKEGN \n" + "DWI FILE: " bval_path + "\n")
-    print("STARTING TRACKEGN \n" + "DWI FILE: " bvec_path)
+    print("STARTING TRACKEGN \n" + "DWI FILE: " + local_data_path + "\n")
+    print("STARTING TRACKEGN \n" + "DWI FILE: " + bval_path + "\n")
+    print("STARTING TRACKEGN \n" + "DWI FILE: " + bvec_path)
     print("============================================================")
 
     letters = string.ascii_lowercase
@@ -63,9 +65,6 @@ try:
     #    print("MRTRIX outputs already exit...skipping")
     #    continue
 
-    print("creating temporary scratch directory ", scratch_dir)
-    if not os.path.exists(scratch_dir):
-        os.makedirs(scratch_dir)
     if not os.path.exists(output_dir):
         print("making fresh output directory...")
         os.makedirs(output_dir)
@@ -73,6 +72,9 @@ try:
         print("cleaning out existing output directory...")
         shutil.rmtree(output_dir)
         os.makedirs(output_dir)
+    print("creating temporary scratch directory ", scratch_dir)
+    if not os.path.exists(scratch_dir):
+        os.makedirs(scratch_dir)
 
     if scrape:
         print("basic scraping for raw DWI file, as well as bval and bvec files...")
@@ -81,7 +83,6 @@ try:
                    print(os.path.join(r'F:', file))
     else:
         if not os.path.exists(os.path.join(scratch_dir,"data.nii.gz")):
-            case = os.path.basename(case_path)
             os.system("rsync -av " + args.datapath + " " + os.path.join(scratch_dir,"data.nii.gz"))
         if not os.path.exists(os.path.join(scratch_dir,"dwi.bval")):
             os.system("rsync -av " + bval_path + " " + os.path.join(scratch_dir,"dwi.bval"))
@@ -127,31 +128,35 @@ try:
     print_no_newline("extracting temporary b0...")
     if not os.path.exists(os.path.join(scratch_dir,"mean_b0.mif")):
         os.system("dwiextract " + os.path.join(scratch_dir,"dwi.mif") + " - -bzero | mrmath - mean " + os.path.join(scratch_dir,"mean_b0.mif") + " -axis 3 -force")
-        os.system("mrconvert " + os.path.join(scratch_dir,"mean_b0.mif") + " " + os.path.join(output_dir,"lowb_1mm.nii.gz")) # move all relevent volumes to output dir
-        os.system("mrconvert " + os.path.join(scratch_dir,"mean_b0.mif") + " " + os.path.join(scratch_dir,"mean_b0.nii.gz") + " -force")
+        os.system("mrconvert " + os.path.join(scratch_dir,"mean_b0.mif") + " " + os.path.join(output_dir,"lowb_1mm.nii.gz") + " -datatype float32") # move all relevent volumes to output dir
+        os.system("mrconvert " + os.path.join(scratch_dir,"mean_b0.mif") + " " + os.path.join(scratch_dir,"mean_b0.nii.gz") + " -datatype float32 -force")
         ## calculate all scalar volumes from tensor fit and move to output
         os.system("dwi2tensor " + os.path.join(scratch_dir,"dwi.mif") + " " + os.path.join(scratch_dir,"dwi_dt.mif"))
         os.system("tensor2metric " + os.path.join(scratch_dir,"dwi_dt.mif") + "  -fa " + os.path.join(output_dir,"fa_1mm.nii.gz") + " -vector " + os.path.join(output_dir,"v1_1mm.nii.gz") + " -value " + os.path.join(output_dir,"l1_1mm.nii.gz") + " -force")
     print("done")
 
 
-    ## SAMSEG calls
-    samseg_path = os.path.join(case_path,"samseg_labels","")
+    ## ----------- run SAMSEG ----------- ##
+    samseg_path = os.path.join(output_dir,"samseg_labels","")
     if not os.path.exists(samseg_path + "seg.mgz"):
         os.system("run_samseg -i " + os.path.join(scratch_dir,"mean_b0.nii.gz") + " -o " + samseg_path + " --threads 10")
 
-    ##### run SynthSR to synthesize a T1 from the lowb
+    ## ----------- run SynthSR to synthesize a T1 from the lowb ----------- ##
     os.system("mri_synthsr --i " + os.path.join(scratch_dir,"mean_b0.nii.gz") + " --o " + scratch_dir + " --threads 10")
-    os.system("mri_convert " + os.path.join(scratch_dir,"lowb_synthsr.nii") + " " + os.path.join(output_dir,"lowb_synthsr.nii.gz"))
-    os.makedirs(os.path.join(scratch_dir,"synthsr"))
-    os.system("mri_convert " + os.path.join(scratch_dir,"lowb_synthsr.nii") + " " + os.path.join(scratch_dir,"synthsr","T1.mgz"))
-    shutil.copy(os.path.join(scratch_dir,"synthsr","T1.mgz"), os.path.join(scratch_dir,"synthsr","norm.mgz"))
-    shutil.copy(os.path.join(samseg_path,"seg.mgz"), os.path.join(scratch_dir,"synthsr","aseg.mgz"))
+    shutil.copy(os.path.join(scratch_dir,"mean_b0_synthsr.nii.gz"),os.path.join(output_dir,"lowb_synthsr.nii.gz"))
 
-    #### run Bayesian brainstem subfield segmentation: this requires making the directory look like
+    ## ----------- run Bayesian brainstem subfield segmentation: this requires making the directory look like ----------- ##
+    os.makedirs(os.path.join(scratch_dir,"fs_subj_dir","mri"))
+    os.system("mri_convert " + os.path.join(scratch_dir,"mean_b0_synthsr.nii.gz") + " " + os.path.join(scratch_dir,"fs_subj_dir","mri","T1.mgz"))
+    shutil.copy(os.path.join(scratch_dir,"fs_subj_dir","mri","T1.mgz"), os.path.join(scratch_dir,"fs_subj_dir","mri","norm.mgz"))
+    shutil.copy(os.path.join(samseg_path,"seg.mgz"), os.path.join(scratch_dir,"fs_subj_dir","mri","aseg.mgz"))
     os.makedirs(os.path.join(scratch_dir,"brainstem_subfields"))
-    os.system("segment_subregions brainstem --out-dir=" + os.path.join(scratch_dir,"brainstem_subfields") + " --cross " + " --threads 10")
+    os.system("segment_subregions brainstem --out-dir=" + os.path.join(scratch_dir,"brainstem_subfields") + " --cross " + os.path.join(scratch_dir,"fs_subj_dir") + " --threads 10")
 
+    ## ----------- segment the hypothalamus from the synthSR MPRage -------------- ##
+    os.makedirs(os.path.join(scratch_dir,"hypothalamic_seg"))
+    os.system("mri_segment_hypothalamic_subunits --i " + os.path.join(scratch_dir,"mean_b0_synthsr.nii.gz") + " --o " + os.path.join(scratch_dir,"hypothalamic_seg") + " --threads 10 --cpu")
+    
 
 
     ###########################
@@ -159,16 +164,24 @@ try:
     DC_labels = [28,60]
     cort_labels = [18,54]
     CB_labels = [7,46]
+    midbrain_label = 173
+    pons_label = 174
+    medulla_label = 175
     brainstem_label = 16
+    hypothal_labels = [801,802,803,804,805,806,807,808,809,810]
     ###########################
 
-    print_no_newline("extracting subcortical samseg labels...")
+    print_no_newline("extracting subcortical samseg and subfield labels...")
     ## special dilation and overlap with dilated cortical label to get most anterior portion of DC
     os.system("mri_binarize --noverbose --i " + os.path.join(samseg_path,"seg.mgz ") + " --o " + os.path.join(scratch_dir,"DC.nii") + " --match " + str(DC_labels[0]) + " " + str(DC_labels[1]))
     os.system("mri_binarize --noverbose --i " + os.path.join(samseg_path,"seg.mgz ") + " --o " + os.path.join(scratch_dir,"cort.nii") + " --match " + str(cort_labels[0]) + " " + str(cort_labels[1]))
     os.system("mri_binarize --noverbose --i " + os.path.join(samseg_path,"seg.mgz ") + " --o " + os.path.join(scratch_dir,"thal.nii") + " --match " + str(thal_labels[0]) + " " + str(thal_labels[1]))
     os.system("mri_binarize --noverbose --i " + os.path.join(samseg_path,"seg.mgz ") + " --o " + os.path.join(scratch_dir,"CB.nii") + " --match " + str(CB_labels[0]) + " " + str(CB_labels[1]))
     os.system("mri_binarize --noverbose --i " + os.path.join(samseg_path,"seg.mgz ") + " --o " + os.path.join(scratch_dir,"brainstem.nii") + " --match " + str(brainstem_label))
+    os.system("mri_binarize --noverbose --i " + os.path.join(scratch_dir,"brainstem_subfields","brainstemSsLabels.FSvoxelSpace.mgz") + " --o " + os.path.join(scratch_dir,"midbrain.nii") + " --match " + str(midbrain_label))
+    os.system("mri_binarize --noverbose --i " + os.path.join(scratch_dir,"brainstem_subfields","brainstemSsLabels.FSvoxelSpace.mgz") + " --o " + os.path.join(scratch_dir,"pons.nii") + " --match " + str(pons_label))
+    os.system("mri_binarize --noverbose --i " + os.path.join(scratch_dir,"brainstem_subfields","brainstemSsLabels.FSvoxelSpace.mgz") + " --o " + os.path.join(scratch_dir,"medulla.nii") + " --match " + str(medulla_label))
+    os.system("mri_binarize --noverbose --i " + os.path.join(scratch_dir,"brainstem_subfields","brainstemSsLabels.FSvoxelSpace.mgz") + " --o " + os.path.join(output_dir,"hypothal.nii") + " --match " + str(hypothal_labels[0]) + " " + str(hypothal_labels[1]) + " " + str(hypothal_labels[2]) + " " + str(hypothal_labels[3]) + " " + str(hypothal_labels[4]) + " " + str(hypothal_labels[5]) + " " + str(hypothal_labels[6]) + " " + str(hypothal_labels[7]) + " " + str(hypothal_labels[8]) + " " + str(hypothal_labels[9]))
     print("done")
 
 
@@ -192,7 +205,8 @@ try:
     print_no_newline("creating tractography mask from thal and brainstem labels...")
     track_mask = tractography_mask(os.path.join(scratch_dir,"all_labels.nii"),os.path.join(scratch_dir,'tractography_mask.nii.gz'))
     print("done")
-    ## extract brain mask
+
+    ## -------- extract brain mask --------- ##
     print_no_newline("extracting brain mask...")
     if not os.path.exists(os.path.join(scratch_dir,"brain_mask.mif")):
         os.system("dwi2mask " + os.path.join(scratch_dir,"dwi.mif") + " " + os.path.join(scratch_dir,"brain_mask.mif") + " -force")
@@ -252,9 +266,13 @@ try:
 
 
 
-    #### convert into Trackvis .trk format for visualization
+    ## ------------- convert into Trackvis .trk format for visualization -------------- ##
     print("converting Mrtrix format .tck track files into Trackvis .tck format... ")
-    trk_thal_mrtrix_obj = nib.streamlines.load(os.path.join(scratch_dir,"tracts_thal.tck"), os.path.join(output_dir,"tracts_thal.trk"))
+    reference_anatomy = nib.load(os.path.join(output_dir,"lowb_1mm.nii.gz"))
+    thalamus_sft = load_tractogram(os.path.join(scratch_dir,"tracts_thal.tck"), reference_anatomy)
+    #print("Are headers compatible?: ", is_header_compatible(os.path.join(output_dir,"lowb_1mm.nii.gz"), os.path.join(scratch_dir,"tracts_thal.tck")))
+    save_tractogram(thalamus_sft, os.path.join(output_dir,"tracts_thal.trk"))
+    #nib.streamlines.convert(os.path.join(scratch_dir,"tracts_thal.tck"), os.path.join(output_dir,"tracts_thal.trk"))
     print("done")
 
 
@@ -323,5 +341,4 @@ except:
     print("some exception has occured!!!!")
     print_no_newline("deleting scratch directory...")
     shutil.rmtree(scratch_dir)
-    print("done")
-    continue
+    print("exiting")
