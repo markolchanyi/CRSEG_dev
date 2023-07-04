@@ -15,11 +15,6 @@ from utils import print_no_newline, parse_args_mrtrix, count_shells, get_header_
 
 
 
-def run_tract_parsing():
-
-
-
-
 """
 MrTrix-based probabalistic tractography preprocessing pipeline for brainstem WM bundles
 
@@ -54,7 +49,6 @@ unet_segment = args.unet_segment
 #        case = line.strip()
 #        case_list_full.append(os.path.join(basepath,case))
 #    casefile.close()
-
 
 try:
     print("============================================================")
@@ -162,8 +156,9 @@ try:
 
     ## ----------- segment the hypothalamus from the synthSR MPRage -------------- ##
     os.makedirs(os.path.join(scratch_dir,"hypothalamic_seg"))
-    os.system("mri_segment_hypothalamic_subunits --i " + os.path.join(scratch_dir,"mean_b0_synthsr.nii.gz") + " --o " + os.path.join(scratch_dir,"hypothalamic_seg") + " --threads 10 --cpu")
-
+    #os.system("mri_segment_hypothalamic_subunits --i " + os.path.join(scratch_dir,"mean_b0.nii.gz") + " --o " + os.path.join(output_dir,"hypothalamic_seg") + " --threads 10 --cpu")
+    os.system("sh /autofs/space/nicc_003/users/olchanyi/CRSEG_dev/CRSEG/shell/hypothal_seg.sh " + os.path.join(scratch_dir,"mean_b0_synthsr.nii.gz") + " " +  os.path.join(scratch_dir,"hypothalamic_seg"))
+    shutil.copy(os.path.join(scratch_dir,"hypothalamic_seg","mean_b0_synthsr_hypo_seg.nii.gz"),os.path.join(output_dir,"lowb_synthsr_hypo_seg.nii.gz"))
 
 
     ###########################
@@ -193,15 +188,18 @@ try:
 
 
     ## get centroid voxel coordinates of union of thalamic and brainstem masks to obtain bounding box location for smaller ROI for the U-net.
+    os.system("mri_binarize --noverbose --i " + os.path.join(samseg_path,"seg.mgz") + " --o " + os.path.join(scratch_dir,'thal_brainstem_union.mgz') + " --match " + str(brainstem_label) + " " + str(thal_labels[0]) + " " + str(thal_labels[1]))
     os.system("mri_binarize --noverbose --i " + os.path.join(samseg_path,"seg.mgz ") + " --o " + os.path.join(scratch_dir,"all_labels.nii") + " --match " + str(thal_labels[0]) + " " + str(thal_labels[1]) + " " + str(DC_labels[0]) + " " + str(DC_labels[1]) + " " + str(CB_labels[0]) + " " + str(CB_labels[1]) + " " + str(brainstem_label))
-    os.system("mrmath " + os.path.join(scratch_dir,"all_labels.nii") + " -add " + os.path.join(scratch_dir,"medulla.nii") + " -add " + os.path.join(scratch_dir,"hypothal.nii") + " " + os.path.join(scratch_dir,"all_labels_medulla_hypothal.nii.gz"))
+    #os.system("fslmaths " + os.path.join(scratch_dir,"all_labels.nii") + " -add " + os.path.join(scratch_dir,"medulla.nii") + " -add " + os.path.join(scratch_dir,"hypothal.nii") + " " + os.path.join(scratch_dir,"all_labels_medulla_hypothal.nii.gz"))
+    os.system("mrcalc " + os.path.join(scratch_dir,"all_labels.nii") + " " + os.path.join(scratch_dir,"medulla.nii") + " -or " + os.path.join(scratch_dir,"hypothal.nii") + " -or " + os.path.join(scratch_dir,"all_labels_medulla_hypothal.nii.gz") + " -force")
+    shutil.copy(os.path.join(scratch_dir,"all_labels_medulla_hypothal.nii.gz"),os.path.join(output_dir,"all_labels_medulla_hypothal.nii.gz"))
     os.system("mrcentroid -voxelspace " + os.path.join(scratch_dir,'thal_brainstem_union.mgz') + " > " + os.path.join(scratch_dir,"thal_brainstem_cntr_coords.txt"))
     os.system("mri_info --vox2ras " + os.path.join(scratch_dir,'thal_brainstem_union.mgz') + " > " + os.path.join(scratch_dir,"thal_brainstem_vox2ras.txt"))
 
     brainstem_cntr_arr = np.loadtxt(os.path.join(scratch_dir,"thal_brainstem_cntr_coords.txt"))
     brainstem_cntr_arr_hom = np.append(brainstem_cntr_arr,1.0) ## make homogenous array
-    vox2ras_mat = np.loadtxt(os.path.join(scratch_dir,"thal_brainstem_vox2ras.txt"))
-    ras_cntr = np.matmul(vox2ras_mat,brainstem_cntr_arr_hom.T) ## RAS coordinate transform through nultiplying by transform matrix
+    #vox2ras_mat = np.loadtxt(os.path.join(scratch_dir,"thal_brainstem_vox2ras.txt"))
+    #ras_cntr = np.matmul(vox2ras_mat,brainstem_cntr_arr_hom.T) ## RAS coordinate transform through nultiplying by transform matrix
 
     ## crop all invariant volumes to U-Net cropsize
     print_no_newline("cropping invariant volumes to comply with unet dimensions... ")
@@ -275,13 +273,13 @@ try:
     ## ------------- probabilistic tract generation for new volumes volumes ------------- ##
     if not os.path.exists(os.path.join(scratch_dir,"tracts_thal.tck")):
         print("starting tracking on thal.mif")
-        os.system("tckgen -algorithm iFOD2 -angle 50 -select 50000 -seed_image " + os.path.join(scratch_dir,"hypothal.mif") + " -include " + os.path.join(scratch_dir,"pons.mif") + " -include " + os.path.join(scratch_dir,"medulla.mif") + " -exclude " + os.path.join(scratch_dir,"CB.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"tracts_hypothal.tck") + " -mask " + os.path.join(scratch_dir,'tractography_mask_medulla_hypothal.nii.gz') + " -max_attempts_per_seed 750 -trials 750 -force -nthreads 20")
+        os.system("tckgen -algorithm iFOD2 -angle 50 -select 50000 -seed_image " + os.path.join(scratch_dir,"DC.mif") + " -include " + os.path.join(scratch_dir,"pons.mif") + " -include " + os.path.join(scratch_dir,"medulla.mif") + " -exclude " + os.path.join(scratch_dir,"CB.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"tracts_hypothal.tck") + " -mask " + os.path.join(scratch_dir,'tractography_mask_medulla_hypothal.nii.gz') + " -max_attempts_per_seed 750 -trials 750 -force -nthreads 20")
     if not os.path.exists(os.path.join(scratch_dir,"tracts_DC.tck")):
         print("starting tracking on DC.mif")
         os.system("tckgen -algorithm iFOD2 -angle 50 -select 50000 -seed_image " + os.path.join(scratch_dir,"thal.mif") + " -include " + os.path.join(scratch_dir,"pons.mif") + " -include " + os.path.join(scratch_dir,"medulla.mif") + " -exclude " + os.path.join(scratch_dir,"CB.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"tracts_pons.tck") + " -mask " + os.path.join(scratch_dir,'tractography_mask_medulla_hypothal.nii.gz') + " -max_attempts_per_seed 750 -trials 750 -force -nthreads 20")
     if not os.path.exists(os.path.join(scratch_dir,"tracts_CB.tck")):
         print("starting tracking on CB.mif")
-        os.system("tckgen -algorithm iFOD2 -angle 50 -select 50000 -seed_image " + os.path.join(scratch_dir,"hypothal.mif") + " -exclude " + os.path.join(scratch_dir,"medulla.mif") + " -include " + os.path.join(scratch_dir,"midbrain.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"tracts_midbrain.tck") + " -mask " + os.path.join(scratch_dir,'tractography_mask_medulla_hypothal.nii.gz') + " -max_attempts_per_seed 750 -trials 750 -force -nthreads 20")
+        os.system("tckgen -algorithm iFOD2 -angle 50 -select 50000 -seed_image " + os.path.join(scratch_dir,"DC.mif") + " -exclude " + os.path.join(scratch_dir,"medulla.mif") + " -include " + os.path.join(scratch_dir,"midbrain.mif") + " " + os.path.join(scratch_dir,"wmfod_norm.mif") + " " + os.path.join(scratch_dir,"tracts_midbrain.tck") + " -mask " + os.path.join(scratch_dir,'tractography_mask_medulla_hypothal.nii.gz') + " -max_attempts_per_seed 750 -trials 750 -force -nthreads 20")
 
 
 
@@ -319,11 +317,11 @@ try:
         os.system("tckmap " + os.path.join(scratch_dir,"tracts_CB.tck") + " -template " + os.path.join(scratch_dir,"mean_b0.mif") + " -contrast tdi " + os.path.join(scratch_dir,"tracts_CB.mif") + " -force")
 
     ##### converting tracts into scalar tract densities
-    if not os.path.exists(os.path.join(scratch_dir,"tracts_thal.mif")):
+    if not os.path.exists(os.path.join(scratch_dir,"tracts_hypothal.mif")):
         os.system("tckmap " + os.path.join(scratch_dir,"tracts_hypothal.tck") + " -template " + os.path.join(scratch_dir,"mean_b0.mif") + " -contrast tdi " + os.path.join(scratch_dir,"tracts_hypothal.mif") + " -force")
-    if not os.path.exists(os.path.join(scratch_dir,"tracts_DC.mif")):
+    if not os.path.exists(os.path.join(scratch_dir,"tracts_pons.mif")):
         os.system("tckmap " + os.path.join(scratch_dir,"tracts_pons.tck") + " -template " + os.path.join(scratch_dir,"mean_b0.mif") + " -contrast tdi " + os.path.join(scratch_dir,"tracts_pons.mif") + " -force")
-    if not os.path.exists(os.path.join(scratch_dir,"tracts_CB.mif")):
+    if not os.path.exists(os.path.join(scratch_dir,"tracts_midbrain.mif")):
         os.system("tckmap " + os.path.join(scratch_dir,"tracts_midbrain.tck") + " -template " + os.path.join(scratch_dir,"mean_b0.mif") + " -contrast tdi " + os.path.join(scratch_dir,"tracts_midbrain.mif") + " -force")
 
     ### perform tract-wise histrogram normalization. matched with the CB tract map. Syntax is | type | input | target | output
