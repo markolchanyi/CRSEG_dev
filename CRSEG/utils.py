@@ -24,6 +24,7 @@ def parse_args_mrtrix():
     parser.add_argument('-p','--fsl_preprocess',help="preprocess the dwi nitfi, this will perform MrTrix-wrapped FSL eddy and motion correction", type=str, default=False, required=False)
     parser.add_argument('-sc','--scrape',help="Scraping for default DWI, bval and bvec files...not recommended", type=str, default=False, required=False)
     parser.add_argument('-us','--unet_segment',help="Segment out white matter from the tract files", type=str, default=False, required=False)
+    parser.add_argument('-ufl','--use_fine_labels',help="Use brainstem subfields and hypothalamic labels as more finely parsed tractography ROIs", type=str, default=False, required=False)
 
     return parser.parse_args()
 
@@ -49,6 +50,31 @@ def parse_args_crseg_main():
     return parser.parse_args()
 
 
+def parse_args_unet_predict():
+
+    parser = argparse.ArgumentParser(description="Runs U-net white matter bundle prediction for brainstem WM")
+    #------------------- Required Arguments -------------------
+    parser.add_argument('-m','--model_file', help="UNet model file path", type=str, required=True)
+    parser.add_argument('-o','--output_path', help="Output directory for saving segmentations", type=str, required=True)
+    parser.add_argument('-lowb','--lowb_file', help="Low-b volume file path", type=str, required=True)
+    parser.add_argument('-fa','--fa_file', help="FA volume file path", type=str, required=True)
+    parser.add_argument('-tract','--tract_file', help="RGB tract file path", type=str, required=True)
+    parser.add_argument('-llp','--label_list_path', help="Path to numpy array containing label values", type=str, required=True)
+    parser.add_argument('-r','--resolution', help="Resolution of the input segmentations", type=float, default=1.0, required=False)
+    parser.add_argument('-gm','--generator_mode', help="Which generator to use", type=str, default='rgb', required=False)
+    parser.add_argument('-fc','--unet_feat_count', help="Number of features in UNet base level", type=int, default=24, required=False)
+    parser.add_argument('-nl','--n_levels', help="Number of levels", type=int, default=5, required=False)
+    parser.add_argument('-cs','--conv_size', help="Size of convolution kernel", type=int, default=3, required=False)
+    parser.add_argument('-fm','--feat_multiplier', help="Feature multiplier per level", type=int, default=2, required=False)
+    parser.add_argument('-cpl','--nb_conv_per_level', help="Number of convolutions per unet layer level", type=int, default=2, required=False)
+    parser.add_argument('-a','--activation', help="Type of activation function, can be [elu] or [relu]", type=str, default='elu', required=False)
+    parser.add_argument('-bb','--bounding_box_width', help="Bounding box width around the brainstem", type=int, default=64, required=False)
+    parser.add_argument('-ar','--aff_ref', help="Feature multiplier per level", type=int, default=np.eye(4), required=False)
+
+    return parser.parse_args()
+
+
+
 def count_shells(dwi_json_path):
     f = open(dwi_json_path)
     dw_head = json.load(f)
@@ -65,10 +91,12 @@ def count_shells(dwi_json_path):
     return n_shells
 
 
+
 def get_header_resolution(dwi_json_path):
     f = open(dwi_json_path)
     dw_head = json.load(f)
     return dw_head['spacing'][0]
+
 
 
 def tractography_mask(template_vol_path,output_path):
@@ -83,6 +111,7 @@ def tractography_mask(template_vol_path,output_path):
 
     mask_vol[min_point[0]:max_point[0],min_point[1]:max_point[1],min_point[2]:max_point[2]] = 1
     save_nifti(output_path,mask_vol,aff)
+
 
 
 def rescale_intensities(vol,factor=5):

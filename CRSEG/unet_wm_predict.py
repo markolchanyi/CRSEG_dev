@@ -5,7 +5,9 @@ sys.path.append('/autofs/space/nicc_003/users/olchanyi/CRSEG_dev/unet_scripts')
 import unet.utils as utils
 import unet.models as models
 
-def predict(output_path,
+
+
+def unet_predict(output_path,
             lowb_file,
             fa_file,
             tract_file,
@@ -20,8 +22,7 @@ def predict(output_path,
             nb_conv_per_level=2,
             activation='elu',
             bounding_box_width=64,
-            aff_ref=np.eye(4),
-            shell_flag=None):
+            aff_ref=np.eye(4)):
 
     assert (generator_mode == 'fa_v1') | (generator_mode == 'rgb'), \
         'generator mode must be fa_v1 or rgb'
@@ -112,28 +113,28 @@ def predict(output_path,
 
 
 
+args = parse_args_mrtrix()
 
-model_file = '/autofs/space/nicc_003/users/olchanyi/models/CRSEG_unet_models/joint_brainstem_model_v2/dice_090.h5'
-output_path = '/autofs/space/nicc_003/users/olchanyi/data/HCP_MGH_ADULT/mgh_1001/trackgen_outputs/unet_test'
-lowb_file = '/autofs/space/nicc_003/users/olchanyi/data/HCP_MGH_ADULT/mgh_1001/trackgen_outputs/lowb_1mm_cropped_norm.nii.gz'
-fa_file = '/autofs/space/nicc_003/users/olchanyi/data/HCP_MGH_ADULT/mgh_1001/trackgen_outputs/fa_1mm_cropped_norm.nii.gz'
-tract_file = '/autofs/space/nicc_003/users/olchanyi/data/HCP_MGH_ADULT/mgh_1001/trackgen_outputs/tracts_concatenated_1mm_cropped_norm.nii.gz'
-path_label_list = '/autofs/space/nicc_003/users/olchanyi/data/CRSEG_unet_training_data/7ROI_training_dataset/brainstem_wm_label_list.npy'
+model_file = args.model_file
+output_path = args.output_path
+lowb_file = args.lowb_file
+fa_file = args.fa_file
+tract_file = args.tract_file
+path_label_list = args.label_list_path
 
-predict(output_path,
+unet_predict(output_path,
             lowb_file,
             fa_file,
             tract_file,
             path_label_list,
             model_file,
-            resolution=1.0,
-            generator_mode='rgb',
-            unet_feat_count=24,
-            n_levels=5,
-            conv_size=3,
-            feat_multiplier=2,
-            nb_conv_per_level=2,
-            activation='elu',
-            bounding_box_width=64,
-            aff_ref=np.eye(4),
-            shell_flag=None)
+            resolution=args.resolution,
+            generator_mode=args.generator_mode,
+            unet_feat_count=args.unet_feat_count,
+            n_levels=args.n_levels,
+            conv_size=args.conv_size,
+            feat_multiplier=args.feat_multiplier,
+            nb_conv_per_level=args.nb_conv_per_level,
+            activation=args.activation,
+            bounding_box_width=args.bounding_box_width,
+            aff_ref=np.eye(4))
