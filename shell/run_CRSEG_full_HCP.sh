@@ -30,7 +30,7 @@ python ../CRSEG/unet_wm_predict.py \
         --lowb_file $BASEPATH/crseg_outputs/lowb_1mm_cropped_norm.nii.gz \
         --fa_file $BASEPATH/crseg_outputs/fa_1mm_cropped_norm.nii.gz \
         --tract_file $BASEPATH/crseg_outputs/tracts_concatenated_1mm_cropped_norm.nii.gz \
-        --path_label_list /autofs/space/nicc_003/users/olchanyi/data/CRSEG_unet_training_data/7ROI_training_dataset/brainstem_wm_label_list.npy
+        --label_list_path /autofs/space/nicc_003/users/olchanyi/data/CRSEG_unet_training_data/7ROI_training_dataset/brainstem_wm_label_list.npy \
 
 
 

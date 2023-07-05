@@ -4,7 +4,7 @@ from scipy import ndimage
 sys.path.append('/autofs/space/nicc_003/users/olchanyi/CRSEG_dev/unet_scripts')
 import unet.utils as utils
 import unet.models as models
-
+from utils import parse_args_unet_predict
 
 
 def unet_predict(output_path,
@@ -113,7 +113,7 @@ def unet_predict(output_path,
 
 
 
-args = parse_args_mrtrix()
+args = parse_args_unet_predict()
 
 model_file = args.model_file
 output_path = args.output_path
