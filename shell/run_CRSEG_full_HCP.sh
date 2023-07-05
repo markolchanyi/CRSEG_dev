@@ -22,7 +22,6 @@ python ../CRSEG/trackgen.py \
 
 
 
-
 # ----------- Unet WM segmentation script ----------- #
 python ../CRSEG/unet_wm_predict.py \
         --model_file /autofs/space/nicc_003/users/olchanyi/models/CRSEG_unet_models/joint_brainstem_model_v2/dice_090.h5 \
@@ -34,18 +33,17 @@ python ../CRSEG/unet_wm_predict.py \
 
 
 
-
 # ----------- CRSEG registration script ----------- #
 python ../scripts/CRSEG_main.py \
-        --target_fa_path /autofs/space/nicc_003/users/olchanyi/scratch/subject_115320/dmri/FA.nii.gz \
-        --target_lowb_path /autofs/space/nicc_003/users/olchanyi/scratch/subject_115320/dmri/lowb.nii.gz \
-        --wm_seg_path /autofs/space/nicc_003/users/olchanyi/scratch/subject_115320/segs/seg.nii.gz \
-        --atlas_fa_path ../../../Atlases/CRSEG_atlas/FSL_HCP1065_FA_0.5mm_BRAINSTEM_CROPPED.mgz \
-        --atlas_lowb_path ../../../Atlases/CRSEG_atlas/T2_0.5mm_BRAINSTEM_CROPPED.mgz \
+        --target_fa_path  $BASEPATH/crseg_outputs/fa_1mm_cropped.nii.gz \
+        --target_lowb_path $BASEPATH/crseg_outputs/lowb_1mm_cropped.nii.gz \
+        --wm_seg_path $BASEPATH/crseg_outputs/unet_results/wmunet.seg.mgz \
+        --atlas_fa_path /autofs/space/nicc_003/users/olchanyi/Atlases/CRSEG_atlas/FSL_HCP1065_FA_0.5mm_BRAINSTEM_CROPPED.mgz \
+        --atlas_lowb_path /autofs/space/nicc_003/users/olchanyi/Atlases/CRSEG_atlas/T2_0.5mm_BRAINSTEM_CROPPED.mgz \
         --atlas_aan_label_directory /autofs/space/nicc_003/users/olchanyi/Atlases/CRSEG_atlas/AAN_probabilistic_labels \
         --label_list_path /autofs/space/nicc_003/users/olchanyi/Atlases/CRSEG_atlas/brainstem_wm_label_list.npy \
-        --atlas_wm_seg_path ../../../Atlases/CRSEG_atlas/CRSEG_ROIs.mgz \
-        --output_directory /autofs/space/nicc_003/users/olchanyi/scratch/subject_115320/CRSEG_outputs/ \
-        --resolution 1.25 \
+        --atlas_wm_seg_path /autofs/space/nicc_003/users/olchanyi/Atlases/CRSEG_atlas/CRSEG_ROIs.mgz \
+        --output_directory $BASEPATH/crseg_outputs/registration_outputs/ \
+        --resolution 1.0 \
         --num_threads 1 \
         --label_overlap 0.3 \
