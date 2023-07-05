@@ -62,9 +62,11 @@ try:
     scratch_dir = os.path.join(output_folder,scratch_str,"")
     output_dir = output_folder
     print("All final MRTrix volumes will be dropped in ", output_dir)
-    #if os.path.exists(os.path.join(output_dir,"tracts_concatenated_1mm_cropped.mif")):
-    #    print("MRTRIX outputs already exit...skipping")
-    #    continue
+
+    ## --------------- exit clause --------------- ##
+    if os.path.exists(os.path.join(output_dir,"tracts_concatenated_1mm_cropped_norm.nii.gz")):
+        print("MRTRIX outputs already exit...exiting trackgen")
+        sys.exit(0)
 
     if not os.path.exists(output_dir):
         print("making fresh output directory...")
