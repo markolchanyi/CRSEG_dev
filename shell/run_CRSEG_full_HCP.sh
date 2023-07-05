@@ -24,7 +24,7 @@ python ../CRSEG/trackgen.py \
 
 
 # ----------- Unet WM segmentation script ----------- #
-python unet_wm_predict.py \
+python ../CRSEG/unet_wm_predict.py \
         --model_file /autofs/space/nicc_003/users/olchanyi/models/CRSEG_unet_models/joint_brainstem_model_v2/dice_090.h5 \
         --output_path $BASEPATH/crseg_outputs/unet_predictions \
         --lowb_file $BASEPATH/crseg_outputs/lowb_1mm_cropped_norm.nii.gz \
