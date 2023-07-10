@@ -205,17 +205,15 @@ def prepare_vols_multichan(test_path_list,
                                                                                                       joint_wm_test_mask,
                                                                                                       joint_wm_atlas_mask,
                                                                                                       tolerance)
+            test_mask1_reshaped = test_mask1_reshaped_foo
+        else:
+            test_mask1_reshaped = test_masks_list_reshaped_cropped_aligned[i]
+            atlas_mask1_reshaped = atlas_masks_list_reshaped_cropped_aligned[i]
 
-        test_mask1_reshaped = test_mask1_reshaped_foo
-        ## binarize and clean masks
-        #test_mask1_reshaped = max_threshold(test_mask1_reshaped)
-        #where_objs = morphology.remove_small_objects(test_mask1_reshaped.astype(np.bool_), 5)
-        #test_mask1_reshaped[where_objs < 0.5] = 0
+
         gauss_sigma = 0.25
-
         #test_mask1_reshaped = gaussian_filter(test_mask1_reshaped, sigma=gauss_sigma)
         #atlas_mask1_reshaped = gaussian_filter(atlas_mask1_reshaped, sigma=gauss_sigma)
-
         #test_mask1_reshaped = max_threshold(test_mask1_reshaped)
         #atlas_mask1_reshaped = max_threshold(atlas_mask1_reshaped)
 
@@ -272,7 +270,11 @@ def prepare_vols_multichan(test_path_list,
                                                                                                         joint_wm_atlas_mask,
                                                                                                         tolerance)
 
-        test_reshaped_cropped = test_reshaped_cropped_foo #gaussian_filter(test_reshaped_cropped_foo,sigma=0.1)
+            test_reshaped_cropped = test_reshaped_cropped_foo #gaussian_filter(test_reshaped_cropped_foo,sigma=0.1)
+        else:
+            test_reshaped_cropped = test_reshaped
+            atlas_reshaped_cropped_foo = atlas_reshaped_aligned
+
 
 
         gauss_sigma = 0.15
