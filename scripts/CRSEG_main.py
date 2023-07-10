@@ -89,6 +89,9 @@ def main():
       label_array = np.delete(label_array, 0)
       label_array = np.delete(label_array, -1)
 
+      print("Ignoring faulty label: ", np.where(label_array == 1007))
+      label_array = np.delete(label_array, np.where(label_array == 1007))
+
       print("Found label array has the given vals: ", label_array)
 
 

@@ -350,6 +350,8 @@ def propagate(label_path,
                                                                   joint_wm_atlas_mask,
                                                                   joint_wm_atlas_mask,
                                                                   tolerance)
+                else:
+                    vol_cropped = vol_aligned
 
 
                 nib.save(nib.Nifti1Image(vol_cropped,affine=save_affine_test), os.path.join(savepath,file.replace(ext,'_cropped.nii.gz')))
@@ -363,6 +365,8 @@ def propagate(label_path,
 
                 if speed_crop:
                     vol_uncropped = uncrop_volume(warped_air_vol.numpy(),c_mat1)
+                else:
+                    vol_uncropped = warped_air_vol.numpy()
                 if resolution_flip and not pre_affine_step:
                     warped_vol_unpadded = unpad(vol_uncropped, test_p_matrix)
                     warped_air_vol_ds = resize(warped_vol_unpadded,(pad_shape[0],pad_shape[1],pad_shape[2]),anti_aliasing=True)

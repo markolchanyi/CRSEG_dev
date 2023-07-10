@@ -397,9 +397,9 @@ def affine_trans(atlas_path_list,test_path_list,test_mask_path,scratch_dir):
     os.system("reg_resample -ref " + atlas_path_list[1] + " -flo " + test_mask_path + " -res " + os.path.join(scratch_dir,"WM_masks_affine_transformed.nii.gz") + " -trans " + os.path.join(scratch_dir,"affine_mat.txt") + " -inter 0")
 
     ### resample everything to the same space
-    os.system("mri_convert " + os.path.join(scratch_dir,"WM_masks_affine_transformed.nii.gz") + " " os.path.join(scratch_dir,"WM_masks_affine_transformed.nii.gz") + " -rl " + atlas_path_list[1] + " -odt float")
-    os.system("mri_convert " + os.path.join(scratch_dir,"b0_affine_transformed.nii.gz") + " " os.path.join(scratch_dir,"b0_affine_transformed.nii.gz") + " -rl " + atlas_path_list[1] + " -odt float")
-    os.system("mri_convert " + os.path.join(scratch_dir,"fa_affine_transformed.nii.gz") + " " os.path.join(scratch_dir,"fa_affine_transformed.nii.gz") + " -rl " + atlas_path_list[1] + " -odt float")
+    os.system("mri_convert " + os.path.join(scratch_dir,"WM_masks_affine_transformed.nii.gz") + " " + os.path.join(scratch_dir,"WM_masks_affine_transformed.nii.gz") + " -rl " + atlas_path_list[1] + " -odt float")
+    os.system("mri_convert " + os.path.join(scratch_dir,"b0_affine_transformed.nii.gz") + " " + os.path.join(scratch_dir,"b0_affine_transformed.nii.gz") + " -rl " + atlas_path_list[1] + " -odt float")
+    os.system("mri_convert " + os.path.join(scratch_dir,"fa_affine_transformed.nii.gz") + " " + os.path.join(scratch_dir,"fa_affine_transformed.nii.gz") + " -rl " + atlas_path_list[1] + " -odt float")
 
 
     ### save inverse affine for propagation step
