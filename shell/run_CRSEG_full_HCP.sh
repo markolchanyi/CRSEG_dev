@@ -35,15 +35,15 @@ python ../CRSEG/unet_wm_predict.py \
 
 # ----------- CRSEG registration script ----------- #
 python ../scripts/CRSEG_main.py \
-        --target_fa_path  $BASEPATH/crseg_outputs/fa_1mm_cropped.nii.gz \
+        --target_fa_path $BASEPATH/crseg_outputs/fa_1mm_cropped.nii.gz \
         --target_lowb_path $BASEPATH/crseg_outputs/lowb_1mm_cropped.nii.gz \
-        --wm_seg_path $BASEPATH/crseg_outputs/unet_results/wmunet.seg.mgz \
-        --atlas_fa_path /autofs/space/nicc_003/users/olchanyi/Atlases/CRSEG_atlas/FSL_HCP1065_FA_0.5mm_BRAINSTEM_CROPPED.mgz \
-        --atlas_lowb_path /autofs/space/nicc_003/users/olchanyi/Atlases/CRSEG_atlas/T2_0.5mm_BRAINSTEM_CROPPED.mgz \
+        --wm_seg_path $BASEPATH/crseg_outputs/unet_predictions/unet_results/wmunet.seg.mgz \
+        --atlas_fa_path /autofs/space/nicc_003/users/olchanyi/Atlases/CRSEG_atlas/FSL_HCP1065_FA_0.5mm_BRAINSTEM_CROPPED_128.nii.gz \
+        --atlas_lowb_path /autofs/space/nicc_003/users/olchanyi/Atlases/CRSEG_atlas/T2_0.5mm_BRAINSTEM_CROPPED_128.nii.gz \
         --atlas_aan_label_directory /autofs/space/nicc_003/users/olchanyi/Atlases/CRSEG_atlas/AAN_probabilistic_labels \
         --label_list_path /autofs/space/nicc_003/users/olchanyi/Atlases/CRSEG_atlas/brainstem_wm_label_list.npy \
-        --atlas_wm_seg_path /autofs/space/nicc_003/users/olchanyi/Atlases/CRSEG_atlas/CRSEG_ROIs.mgz \
-        --output_directory $BASEPATH/crseg_outputs/registration_outputs/ \
+        --atlas_wm_seg_path /autofs/space/nicc_003/users/olchanyi/scripts/ANTs/scripts/WMB_templates/CRSEG_ANTs_TEMPLATE.nii.gz \
+        --output_directory $BASEPATH/crseg_outputs/registration_outputs \
         --resolution 1.0 \
         --num_threads 1 \
         --label_overlap 0.3 \

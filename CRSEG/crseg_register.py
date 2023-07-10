@@ -150,25 +150,28 @@ def register_multichan(casepath,
             ## create varifold mesh for this pyramid level
             print_no_newline("meshing... ")
 
-            moving_verts_list = []
-            moving_faces_list = []
-            fixed_cts_list = []
-            fixed_norms_list = []
-            mesh_weight = 0
-            for i in range(len(fix_msk_list_level)):
-                moving_verts,moving_faces,_,_ = mesh(mean_threshold(mov_msk_list_level[i].numpy()),step_size=mesh_spacing[level])
-                moving_verts_list.append(moving_verts)
-                moving_faces_list.append(moving_faces)
+            #moving_verts_list = []
+            #moving_faces_list = []
+            #fixed_cts_list = []
+            #fixed_norms_list = []
+            #mesh_weight = 0
+            #for i in range(len(fix_msk_list_level)):
+            #    moving_verts,moving_faces,_,_ = mesh(mean_threshold(mov_msk_list_level[i].numpy()),step_size=mesh_spacing[level])
+            #    moving_verts_list.append(moving_verts)
+            #    moving_faces_list.append(moving_faces)
 
-                _,_,fixed_cts,fixed_norms = mesh(mean_threshold(fix_msk_list_level[i].numpy()),step_size=mesh_spacing[level])
-                fixed_cts_list.append(fixed_cts)
-                fixed_norms_list.append(fixed_norms)
-                mesh_weight += np.max(fixed_norms.shape)
-
+            #    _,_,fixed_cts,fixed_norms = mesh(mean_threshold(fix_msk_list_level[i].numpy()),step_size=mesh_spacing[level])
+            #    fixed_cts_list.append(fixed_cts)
+            #    fixed_norms_list.append(fixed_norms)
+            #    mesh_weight += np.max(fixed_norms.shape)
+            fixed_norms_list=None
+            fixed_cts_list=None
+            moving_verts_list=None
+            moving_faces_list=None
             print("done")
             print("Adjusted mesh spacing to: ", mesh_spacing[level])
 
-            mask_weights[level] /= mesh_weight
+            #mask_weights[level] /= mesh_weight
         else:
             fixed_norms_list=None
             fixed_cts_list=None
@@ -306,8 +309,6 @@ def propagate(label_path,
     #joint_wm_atlas_mask = join_labels(np.rot90(atlas_mask,k=3,axes=(1, 2)))
     joint_wm_atlas_mask = join_labels(atlas_mask)
 
-    label_path = "/Users/markolchanyi/Desktop/Edlow_Brown/Projects/testing/CRSEG_testing/subject_115320/CRSEG_outputs/wm_outputs/"
-
     for subdir, dirs, files in os.walk(label_path):
         for file in files:
             if len(file.split('.')) > 2:
@@ -393,8 +394,8 @@ def propagate(label_path,
 
     print_no_newline("creating and saving joint label volume... ")
     ### collect all transformed labels into a single array and match to dictionary accordingly
-    #aan_label_dict = {1001: 'DR',1002: 'PAG',1003: 'MnR',1004: 'VTA',1005: 'LC_L',2005: 'LC_R',1006: 'LDTg_L',2006: 'LDTg_R',1007: 'PBC_L',2007: 'PBC_R',1008: 'PnO_L',2008: 'PnO_R',1009: 'mRt_L',2009: 'mRt_R',1011: 'PTg_L',2011: 'PTg_R'}
-    aan_label_dict = {1001: 'label_1001',1002: 'label_1002',1003: 'label_1003',1004: 'label_1004',1005: 'label_1005', 1006: 'label_1006', 1007: "label_1007", 2001: 'label_2001',2002: 'label_2002',2003: 'label_2003',2004: 'label_2004',2005: 'label_2005',2006: 'label_2006'}
+    aan_label_dict = {1001: 'DR',1002: 'PAG',1003: 'MnR',1004: 'VTA',1005: 'LC_L',2005: 'LC_R',1006: 'LDTg_L',2006: 'LDTg_R',1007: 'PBC_L',2007: 'PBC_R',1008: 'PnO_L',2008: 'PnO_R',1009: 'mRt_L',2009: 'mRt_R',1011: 'PTg_L',2011: 'PTg_R'}
+    #aan_label_dict = {1001: 'label_1001',1002: 'label_1002',1003: 'label_1003',1004: 'label_1004',1005: 'label_1005', 1006: 'label_1006', 1007: "label_1007", 2001: 'label_2001',2002: 'label_2002',2003: 'label_2003',2004: 'label_2004',2005: 'label_2005',2006: 'label_2006'}
 
 
     foovol = nib.load(label_name_collector[0])
@@ -409,5 +410,5 @@ def propagate(label_path,
 
 
     all_label_vol_nib = nib.Nifti1Image(all_label_vol,affine=foovol.affine)
-    nib.save(all_label_vol_nib,os.path.join(savepath,"wm_label_volume_transformed.nii.gz"))
+    nib.save(all_label_vol_nib,os.path.join(savepath,"AAN_label_volume_transformed.nii.gz"))
     print("done")

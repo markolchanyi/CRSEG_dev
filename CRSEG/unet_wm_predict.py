@@ -1,10 +1,11 @@
 import os, sys
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import numpy as np
 from scipy import ndimage
 sys.path.append('/autofs/space/nicc_003/users/olchanyi/CRSEG_dev/unet_scripts')
 import unet.utils as utils
 import unet.models as models
-from utils import parse_args_unet_predict
+from utils import parse_args_unet_predict, print_no_newline
 
 
 def unet_predict(output_path,
@@ -27,6 +28,7 @@ def unet_predict(output_path,
     assert (generator_mode == 'fa_v1') | (generator_mode == 'rgb'), \
         'generator mode must be fa_v1 or rgb'
 
+    print_no_newline("Starting UNet WM predictions... ")
     # Load label list
     label_list = np.load(path_label_list)
 
@@ -107,7 +109,7 @@ def unet_predict(output_path,
     utils.save_volume(seg.astype(int), aff2, None, output_seg_file)
     np.save(output_vol_file, vols_in_mm3)
     utils.save_volume(posteriors, aff2, None, output_posteriors_file)
-    print('UNet WM segmentation finished')
+    print('finished!')
 
 
 

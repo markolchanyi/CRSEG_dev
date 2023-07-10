@@ -123,7 +123,6 @@ def prepare_vols_multichan(test_path_list,
 
         ### just for debugging of transformation model
         atlas_wm_save_vol = nib.Nifti1Image(atlas_wm_masks_vol_copy,affine=affine)
-        nib.save(atlas_wm_save_vol,os.path.join("/Users/markolchanyi/Desktop/Edlow_Brown/Projects/testing/CRSEG_testing/subject_115320/CRSEG_outputs/wm_outputs","label_" + str(label_array[i]) + ".nii.gz"))
 
     del test_wm_masks_vol_copy
     del atlas_wm_masks_vol_copy

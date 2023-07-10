@@ -182,10 +182,10 @@ try:
     os.system("mri_binarize --noverbose --i " + os.path.join(samseg_path,"seg.mgz ") + " --o " + os.path.join(scratch_dir,"thal.nii") + " --match " + str(thal_labels[0]) + " " + str(thal_labels[1]))
     os.system("mri_binarize --noverbose --i " + os.path.join(samseg_path,"seg.mgz ") + " --o " + os.path.join(scratch_dir,"CB.nii") + " --match " + str(CB_labels[0]) + " " + str(CB_labels[1]))
     os.system("mri_binarize --noverbose --i " + os.path.join(samseg_path,"seg.mgz ") + " --o " + os.path.join(scratch_dir,"brainstem.nii") + " --match " + str(brainstem_label))
-    os.system("mri_binarize --noverbose --i " + os.path.join(scratch_dir,"brainstem_subfields","brainstemSsLabels.FSvoxelSpace.mgz") + " --o " + os.path.join(scratch_dir,"midbrain.nii") + " --match " + str(midbrain_label))
-    os.system("mri_binarize --noverbose --i " + os.path.join(scratch_dir,"brainstem_subfields","brainstemSsLabels.FSvoxelSpace.mgz") + " --o " + os.path.join(scratch_dir,"pons.nii") + " --match " + str(pons_label))
-    os.system("mri_binarize --noverbose --i " + os.path.join(scratch_dir,"brainstem_subfields","brainstemSsLabels.FSvoxelSpace.mgz") + " --o " + os.path.join(scratch_dir,"medulla.nii") + " --match " + str(medulla_label))
-    os.system("mri_binarize --noverbose --i " + os.path.join(scratch_dir,"hypothalamic_seg","mean_b0_synthsr_hypo_seg.nii.gz") + " --o " + os.path.join(scratch_dir,"hypothal.nii") + " --match " + str(hypothal_labels[0]) + " " + str(hypothal_labels[1]) + " " + str(hypothal_labels[2]) + " " + str(hypothal_labels[3]) + " " + str(hypothal_labels[4]) + " " + str(hypothal_labels[5]) + " " + str(hypothal_labels[6]) + " " + str(hypothal_labels[7]) + " " + str(hypothal_labels[8]) + " " + str(hypothal_labels[9]))
+    #os.system("mri_binarize --noverbose --i " + os.path.join(scratch_dir,"brainstem_subfields","brainstemSsLabels.FSvoxelSpace.mgz") + " --o " + os.path.join(scratch_dir,"midbrain.nii") + " --match " + str(midbrain_label))
+    #os.system("mri_binarize --noverbose --i " + os.path.join(scratch_dir,"brainstem_subfields","brainstemSsLabels.FSvoxelSpace.mgz") + " --o " + os.path.join(scratch_dir,"pons.nii") + " --match " + str(pons_label))
+    #os.system("mri_binarize --noverbose --i " + os.path.join(scratch_dir,"brainstem_subfields","brainstemSsLabels.FSvoxelSpace.mgz") + " --o " + os.path.join(scratch_dir,"medulla.nii") + " --match " + str(medulla_label))
+    #os.system("mri_binarize --noverbose --i " + os.path.join(scratch_dir,"hypothalamic_seg","mean_b0_synthsr_hypo_seg.nii.gz") + " --o " + os.path.join(scratch_dir,"hypothal.nii") + " --match " + str(hypothal_labels[0]) + " " + str(hypothal_labels[1]) + " " + str(hypothal_labels[2]) + " " + str(hypothal_labels[3]) + " " + str(hypothal_labels[4]) + " " + str(hypothal_labels[5]) + " " + str(hypothal_labels[6]) + " " + str(hypothal_labels[7]) + " " + str(hypothal_labels[8]) + " " + str(hypothal_labels[9]))
     print("done")
 
 
@@ -193,8 +193,8 @@ try:
     os.system("mri_binarize --noverbose --i " + os.path.join(samseg_path,"seg.mgz") + " --o " + os.path.join(scratch_dir,'thal_brainstem_union.mgz') + " --match " + str(brainstem_label) + " " + str(thal_labels[0]) + " " + str(thal_labels[1]))
     os.system("mri_binarize --noverbose --i " + os.path.join(samseg_path,"seg.mgz ") + " --o " + os.path.join(scratch_dir,"all_labels.nii") + " --match " + str(thal_labels[0]) + " " + str(thal_labels[1]) + " " + str(DC_labels[0]) + " " + str(DC_labels[1]) + " " + str(CB_labels[0]) + " " + str(CB_labels[1]) + " " + str(brainstem_label))
     #os.system("fslmaths " + os.path.join(scratch_dir,"all_labels.nii") + " -add " + os.path.join(scratch_dir,"medulla.nii") + " -add " + os.path.join(scratch_dir,"hypothal.nii") + " " + os.path.join(scratch_dir,"all_labels_medulla_hypothal.nii.gz"))
-    os.system("mrcalc " + os.path.join(scratch_dir,"all_labels.nii") + " " + os.path.join(scratch_dir,"medulla.nii") + " -or " + os.path.join(scratch_dir,"hypothal.nii") + " -or " + os.path.join(scratch_dir,"all_labels_medulla_hypothal.nii.gz") + " -force")
-    shutil.copy(os.path.join(scratch_dir,"all_labels_medulla_hypothal.nii.gz"),os.path.join(output_dir,"all_labels_medulla_hypothal.nii.gz"))
+    #os.system("mrcalc " + os.path.join(scratch_dir,"all_labels.nii") + " " + os.path.join(scratch_dir,"medulla.nii") + " -or " + os.path.join(scratch_dir,"hypothal.nii") + " -or " + os.path.join(scratch_dir,"all_labels_medulla_hypothal.nii.gz") + " -force")
+    #shutil.copy(os.path.join(scratch_dir,"all_labels_medulla_hypothal.nii.gz"),os.path.join(output_dir,"all_labels_medulla_hypothal.nii.gz"))
     os.system("mrcentroid -voxelspace " + os.path.join(scratch_dir,'thal_brainstem_union.mgz') + " > " + os.path.join(scratch_dir,"thal_brainstem_cntr_coords.txt"))
     os.system("mri_info --vox2ras " + os.path.join(scratch_dir,'thal_brainstem_union.mgz') + " > " + os.path.join(scratch_dir,"thal_brainstem_vox2ras.txt"))
 
@@ -211,7 +211,7 @@ try:
 
     print_no_newline("creating tractography mask from thal and brainstem labels...")
     track_mask = tractography_mask(os.path.join(scratch_dir,"all_labels.nii"),os.path.join(scratch_dir,'tractography_mask.nii.gz'))
-    track_mask_medulla_hypothal = tractography_mask(os.path.join(scratch_dir,"all_labels_medulla_hypothal.nii.gz"),os.path.join(scratch_dir,'tractography_mask_medulla_hypothal.nii.gz'))
+    #track_mask_medulla_hypothal = tractography_mask(os.path.join(scratch_dir,"all_labels_medulla_hypothal.nii.gz"),os.path.join(scratch_dir,'tractography_mask_medulla_hypothal.nii.gz'))
     print("done")
 
     ## -------- extract brain mask --------- ##
@@ -250,13 +250,13 @@ try:
         os.system("mrconvert " + os.path.join(scratch_dir,"cort.nii") + " " + os.path.join(scratch_dir,"cort.mif") + " -force")
         os.system("mrconvert " + os.path.join(scratch_dir,"CB.nii") + " " + os.path.join(scratch_dir,"CB.mif") + " -force")
         os.system("mrconvert " + os.path.join(scratch_dir,"brainstem.nii") + " " + os.path.join(scratch_dir,"brainstem.mif") + " -force")
-        os.system("mrconvert " + os.path.join(scratch_dir,"midbrain.nii") + " " + os.path.join(scratch_dir,"midbrain.mif") + " -force")
-        os.system("mrconvert " + os.path.join(scratch_dir,"pons.nii") + " " + os.path.join(scratch_dir,"pons.mif") + " -force")
-        os.system("mrconvert " + os.path.join(scratch_dir,"medulla.nii") + " " + os.path.join(scratch_dir,"medulla.mif") + " -force")
-        os.system("mrconvert " + os.path.join(scratch_dir,"hypothal.nii") + " " + os.path.join(scratch_dir,"hypothal.mif") + " -force")
+        #os.system("mrconvert " + os.path.join(scratch_dir,"midbrain.nii") + " " + os.path.join(scratch_dir,"midbrain.mif") + " -force")
+        #os.system("mrconvert " + os.path.join(scratch_dir,"pons.nii") + " " + os.path.join(scratch_dir,"pons.mif") + " -force")
+        #os.system("mrconvert " + os.path.join(scratch_dir,"medulla.nii") + " " + os.path.join(scratch_dir,"medulla.mif") + " -force")
+        #os.system("mrconvert " + os.path.join(scratch_dir,"hypothal.nii") + " " + os.path.join(scratch_dir,"hypothal.mif") + " -force")
 
-        shutil.copy(os.path.join(scratch_dir,"hypothal.nii"),os.path.join(output_dir,"hypothal.nii"))
-        shutil.copy(os.path.join(scratch_dir,'tractography_mask_medulla_hypothal.nii.gz'),os.path.join(output_dir,'tractography_mask_medulla_hypothal.nii.gz'))
+        #shutil.copy(os.path.join(scratch_dir,"hypothal.nii"),os.path.join(output_dir,"hypothal.nii"))
+        #shutil.copy(os.path.join(scratch_dir,'tractography_mask_medulla_hypothal.nii.gz'),os.path.join(output_dir,'tractography_mask_medulla_hypothal.nii.gz'))
 
         print_no_newline("performing intersection of dilated amyg and DC SAMSEG labels...")
         #morpho_amount = int(5/vox_resolution)

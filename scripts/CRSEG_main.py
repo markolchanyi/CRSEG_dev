@@ -52,7 +52,6 @@ def split(list_a, cpu_num):
 
 
 def main():
-
       args = parse_args_crseg_main()
 
       # SET ALL GLOBAL VARS
@@ -105,10 +104,11 @@ def main():
       #n_iters=[2, 2, 2, 2]
       regularisation_weight = [1,5,10,20]
       step_size = [4e-3, 2e-3, 1e-3, 5e-4]
-      mesh_spacing = [3,3,3,3]
-      weights = [5000,10000,40000,1000000]
+      mesh_spacing = [1,1,1,1]
+      #weights = [150,100,100,100]
+      weights = [0,0,0,0]
       weights_raw = np.ones(label_array.size)
-      crop=True
+      crop=False
       crop_tolerance=[50,50]
 
 
@@ -185,13 +185,13 @@ def main():
                                                                                                                                                   save_affine=common_affine_test,
                                                                                                                                                   res_atlas=0.5,
                                                                                                                                                   res_test=1.0,
-                                                                                                                                                  speed_crop=True,
+                                                                                                                                                  speed_crop=crop,
                                                                                                                                                   rotate_atlas=False,
                                                                                                                                                   tolerance=crop_tolerance)
 
 
-      nib.save(nib.Nifti1Image(fixed_image_list[1].numpy(),affine=common_affine_test), os.path.join(scratch_dir,"f_im_cropped.nii.gz"))
-      nib.save(nib.Nifti1Image(moving_image_list[1].numpy(),affine=common_affine_test), os.path.join(scratch_dir,"m_im_cropped.nii.gz"))
+      nib.save(nib.Nifti1Image(fixed_image_list[0].numpy(),affine=common_affine_test), os.path.join(scratch_dir,"f_im_cropped.nii.gz"))
+      nib.save(nib.Nifti1Image(moving_image_list[0].numpy(),affine=common_affine_test), os.path.join(scratch_dir,"m_im_cropped.nii.gz"))
       for i in range(len(fixed_mask_list)):
           nib.save(nib.Nifti1Image(fixed_mask_list[i].numpy(),affine=common_affine_test), os.path.join(scratch_dir,"f_mask" + str(i) + ".nii.gz"))
           nib.save(nib.Nifti1Image(moving_mask_list[i].numpy(),affine=common_affine_test), os.path.join(scratch_dir,"m_mask" + str(i) + ".nii.gz"))
@@ -199,7 +199,7 @@ def main():
 
       if not os.path.isdir(output_path):
           os.makedirs(output_path)
-      #weights = [0,0,0,0]
+
       weight_list = [weights_raw*weights[0],weights_raw*weights[1],weights_raw*weights[2],weights_raw*weights[3]]
       num_iters = n_iters
 
@@ -251,7 +251,7 @@ def main():
             flip=False,
             overlap=label_overlap,
             resolution_flip=True,
-            speed_crop=True,
+            speed_crop=crop,
             tolerance=crop_tolerance)
 
 

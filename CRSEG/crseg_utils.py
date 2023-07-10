@@ -17,7 +17,6 @@ from skimage.transform import rescale, resize, downscale_local_mean
 from scipy import misc
 from scipy.spatial import distance
 from scipy.ndimage.morphology import binary_fill_holes, distance_transform_edt, binary_erosion
-import ipywidgets as ipyw
 import matplotlib.pyplot as plt
 #matplotlib inline
 
