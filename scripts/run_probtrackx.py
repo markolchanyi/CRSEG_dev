@@ -11,7 +11,7 @@ def parse_args_probtrackx():
     parser.add_argument('-s','--seg_path', help="AAN segmentation path", type=str, required=True)
     parser.add_argument('-p','--probtrackx_path', help="output probtrackx path", type=str, required=True)
     parser.add_argument('-t','--template_path', help="template path", type=str, required=True)
-
+    return parser.parse_args()
 
 def get_roi_list(roi_path):
     rois = []
@@ -268,10 +268,10 @@ if not os.path.exists(roi_path):
 aan_label_dict = {1001: 'DR',1002: 'PAG',1003: 'MnR',1004: 'VTA',1005: 'LC_L',2005: 'LC_R',1006: 'LDTg_L',2006: 'LDTg_R',1007: 'PBC_L',2007: 'PBC_R',1008: 'PnO_L',2008: 'PnO_R',1009: 'mRt_L',2009: 'mRt_R',1011: 'PTg_L',2011: 'PTg_R'}
 
 for key, value in aan_label_dict.items():
-    print("looking for " + key + " with value " + str(value) + ". saving as " + os.path.join(roi_path,key + ".nii.gz"))
-    os.system("mri_binarize --noverbose --i " + seg_path + " --o " + os.path.join(roi_path,key + ".nii.gz") + " --match " + str(key))
-    os.system("mri_convert " + os.path.join(roi_path,key + ".nii.gz") + " " + os.path.join(roi_path,key + ".nii") + " -rl " + template_path + " -rt nearest -odt float")
-    os.system("rm " + os.path.join(roi_path,key + ".nii.gz"))
+    print("looking for " + str(value) + " with value " + str(key) + ". saving as " + os.path.join(roi_path,str(value) + ".nii.gz"))
+    os.system("mri_binarize --noverbose --i " + seg_path + " --o " + os.path.join(roi_path,value + ".nii.gz") + " --match " + str(key))
+    os.system("mri_convert " + os.path.join(roi_path,value + ".nii.gz") + " " + os.path.join(roi_path,value + ".nii") + " -rl " + template_path + " -rt nearest -odt float")
+    os.system("rm " + os.path.join(roi_path,value + ".nii.gz"))
 
 
 
@@ -313,7 +313,7 @@ NETWORK_MATRIX = os.path.join(probtrackx_path,"fdt_network_matrix")
 # For example see: '/autofs/space/nicc_002/EXC/EXC007/Bay3/diff.probtrackx2.network/fdt_network_matrix'
 SUBJECT = 'CP'
 # Will be used to label the spreadsheet tab
-NAME_FILE = 'SUB'
+NAME_FILE = os.path.join(probtrackx_path,"statistics.xlsx")
 # Will be used to name your final excel file
 
 
@@ -365,4 +365,4 @@ for roi_index, roi in enumerate(ROI_LIST, start=0):
     print("-----------------------------------------------------")
     print()
 
-workbook.close()(base)
+workbook.close()
