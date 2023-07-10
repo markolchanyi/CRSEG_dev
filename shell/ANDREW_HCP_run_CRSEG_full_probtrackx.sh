@@ -1,21 +1,58 @@
 #source freeurfer for samseg
 #7.3.0 is the most stable version that does not throw a BLAS error
 #and can also run synthSR and brainstem_subfield seg
-export FREESURFER_HOME="/usr/local/freesurfer/7.3.0"
+export FREESURFER_HOME=/usr/local/freesurfer/7.3.0
 source $FREESURFER_HOME/SetUpFreeSurfer.sh
+source /usr/pubsw/packages/mrtrix/env.sh
+mrtrixdir=/usr/pubsw/packages/mrtrix/3.0.2/bin
+fsldir=/usr/pubsw/packages/fsl/6.0.3/bin
+FSLDIR=/usr/pubsw/packages/fsl/6.0.3
+. ${FSLDIR}/etc/fslconf/fsl.sh
+PATH=${FSLDIR}/bin:${PATH}
+export FSLDIR PATH
+export LD_LIBRARY_PATH=/usr/pubsw/packages/CUDA/9.1/lib64
+#export LD_LIBRARY_PATH=/usr/pubsw/packages/CUDA/11.6/lib64:/usr/pubsw/packages/CUDA/11.6/extras/CUPTI/lib64:/usr/pubsw/packages/CUDA/9.0/lib64:/usr/pubsw/packages/CUDA/9.1/lib64
 
 set -e # The script will terminate after the first line that fails
 
 
 
-BASEPATH="/autofs/space/nicc_003/users/olchanyi/data/HCP100/100307"
+
+BASEPATH="/autofs/space/nicc_003/users/olchanyi/data/HCP/100610"
 echo basepath provided is: $BASEPATH
+
+## extract brain mask
+$datapath = $BASEPATH/Native/dMRI/3T/data.nii.gz
+$bvalpath = $BASEPATH/Native/dMRI/3T/bvals
+$bvecpath = $BASEPATH/Native/dMRI/3T/bvecs
+$PROCESSPATH = $BASEPATH/Native/dMRI/3T
+
+
+## extract brain mask
+#if [ ! -d "$PROCESSPATH/diff" ]; then
+#  echo "$PROCESSPATH/diff does not exist...creating"
+#  mkdir $PROCESSPATH/diff
+#fi
+dwi2mask $datapath $PROCESSPATH/nodif_brain_mask.nii.gz -fslgrad $bvecpath $bvalpath -force
+
+
+## run bedpostx
+if [ -e $BASEPATH/Native/dMRI/3T.bedpostX/merged_th1samples.nii.gz ]
+then
+        echo "bedpost outputs already exist...skipping"
+else
+        echo "running bedpostx gpu"
+        bedpostx_datacheck $PROCESSPATH
+        sh /autofs/space/nicc_003/users/olchanyi/scripts/FS_scripts/bedpostx_helper_code.sh $PROCESSPATH
+fi
+
+
 
 # ----------- mrtrix BSB preprocessing script ----------- #
 python ../CRSEG/trackgen.py \
-        --datapath $BASEPATH/T1w/Diffusion/data.nii.gz \
-        --bvalpath $BASEPATH/T1w/Diffusion/bvals \
-        --bvecpath $BASEPATH/T1w/Diffusion/bvecs \
+        --datapath $datapath \
+        --bvalpath $bvalpath \
+        --bvecpath $bvecpath \
         --cropsize 64 \
         --output $BASEPATH/crseg_outputs \
         --use_fine_labels False \
@@ -47,3 +84,12 @@ python ../scripts/CRSEG_main.py \
         --resolution 1.0 \
         --num_threads 1 \
         --label_overlap 0.3 \
+
+
+
+# ----------- run probtrackx script ----------- #
+python ../scripts/run_probtrackx.py \
+        --bedpost_path $BASEPATH/Native/dMRI/3T_bedpostX \
+        --seg_path $BASEPATH/crseg_outputs/unet_predictions/unet_results/wmunet.seg.mgz \
+        --probtrackx_base_path $BASEPATH/crseg_outputs/probtrackx_outputs \
+        --template_path $PROCESSPATH/nodif_brain_mask.nii.gz \
