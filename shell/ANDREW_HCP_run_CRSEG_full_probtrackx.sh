@@ -16,80 +16,124 @@ export LD_LIBRARY_PATH=/usr/pubsw/packages/CUDA/9.1/lib64
 set -e # The script will terminate after the first line that fails
 
 
+# Declare an array of string with type
+declare -a StringArray=("/autofs/space/nicc_003/users/olchanyi/data/HCP/100610"
+                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/102311"
+                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/102816"
+                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/104416"
+                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/105923"
+                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/108323"
+                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/109123"
+                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/111514"
+                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/114823"
+                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/115017"
+                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/115825"
+                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/116726"
+                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/118225"
+                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/125525"
+                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/126426"
+                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/126931"
+                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/128935"
+                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/130518"
+                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/131217"
+                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/131722"
+                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/132118"
+                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/134627"
+                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/134829"
+                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/135124"
+                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/137128"
+                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/140117"
+                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/144226"
+                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/145834"
+                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/146129"
+                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/146432"
+                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/146735"
+                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/146937"
+                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/148133"
+                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/150423"
+                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/155938"
+                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/156334"
+                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/157336"
+                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/158035"
+                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/158136"
+                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/159239"
+                   )
 
 
-BASEPATH="/autofs/space/nicc_003/users/olchanyi/data/HCP/100610"
-echo basepath provided is: $BASEPATH
+for val in ${StringArray[@]}; do
+        BASEPATH=$val
+        #BASEPATH="/autofs/space/nicc_003/users/olchanyi/data/HCP/100610"
+        echo basepath provided is: $BASEPATH
 
-## extract brain mask
-datapath=$BASEPATH/Native/dMRI/3T/data.nii.gz
-bvalpath=$BASEPATH/Native/dMRI/3T/bvals
-bvecpath=$BASEPATH/Native/dMRI/3T/bvecs
-PROCESSPATH=$BASEPATH/Native/dMRI/3T
-
-
-## extract brain mask
-#if [ ! -d "$PROCESSPATH/diff" ]; then
-#  echo "$PROCESSPATH/diff does not exist...creating"
-#  mkdir $PROCESSPATH/diff
-#fi
-dwi2mask $datapath $PROCESSPATH/nodif_brain_mask.nii.gz -fslgrad $bvecpath $bvalpath -force
+        ## extract brain mask
+        datapath=$BASEPATH/Native/dMRI/3T/data.nii.gz
+        bvalpath=$BASEPATH/Native/dMRI/3T/bvals
+        bvecpath=$BASEPATH/Native/dMRI/3T/bvecs
+        PROCESSPATH=$BASEPATH/Native/dMRI/3T
 
 
-## run bedpostx
-if [ -e $BASEPATH/Native/dMRI/3T.bedpostX/merged_th1samples.nii.gz ]
-then
-        echo "bedpost outputs already exist...skipping"
-else
-        echo "running bedpostx gpu"
-        bedpostx_datacheck $PROCESSPATH
-        sh /autofs/space/nicc_003/users/olchanyi/scripts/FS_scripts/bedpostx_helper_code.sh $PROCESSPATH
-fi
+        ## extract brain mask
+        #if [ ! -d "$PROCESSPATH/diff" ]; then
+        #  echo "$PROCESSPATH/diff does not exist...creating"
+        #  mkdir $PROCESSPATH/diff
+        #fi
+        dwi2mask $datapath $PROCESSPATH/nodif_brain_mask.nii.gz -fslgrad $bvecpath $bvalpath -force
 
 
-
-# ----------- mrtrix BSB preprocessing script ----------- #
-#python ../CRSEG/trackgen.py \
-#        --datapath $datapath \
-#        --bvalpath $bvalpath \
-#        --bvecpath $bvecpath \
-#        --cropsize 64 \
-#        --output $BASEPATH/crseg_outputs \
-#        --use_fine_labels False \
+        ## run bedpostx
+        if [ -e $BASEPATH/Native/dMRI/3T.bedpostX/merged_th1samples.nii.gz ]
+        then
+                echo "bedpost outputs already exist...skipping"
+        else
+                echo "running bedpostx gpu"
+                bedpostx_datacheck $PROCESSPATH
+                sh /autofs/space/nicc_003/users/olchanyi/scripts/FS_scripts/bedpostx_helper_code.sh $PROCESSPATH
+        fi
 
 
 
-# ----------- Unet WM segmentation script ----------- #
-#python ../CRSEG/unet_wm_predict.py \
-#        --model_file /autofs/space/nicc_003/users/olchanyi/models/CRSEG_unet_models/joint_brainstem_model_v2/dice_090.h5 \
-#        --output_path $BASEPATH/crseg_outputs/unet_predictions \
-#        --lowb_file $BASEPATH/crseg_outputs/lowb_1mm_cropped_norm.nii.gz \
-#        --fa_file $BASEPATH/crseg_outputs/fa_1mm_cropped_norm.nii.gz \
-#        --tract_file $BASEPATH/crseg_outputs/tracts_concatenated_1mm_cropped_norm.nii.gz \
-#        --label_list_path /autofs/space/nicc_003/users/olchanyi/data/CRSEG_unet_training_data/7ROI_training_dataset/brainstem_wm_label_list.npy \
+        # ----------- mrtrix BSB preprocessing script ----------- #
+        python ../CRSEG/trackgen.py \
+                --datapath $datapath \
+                --bvalpath $bvalpath \
+                --bvecpath $bvecpath \
+                --cropsize 64 \
+                --output $BASEPATH/crseg_outputs \
+                --use_fine_labels False \
 
 
 
-# ----------- CRSEG registration script ----------- #
-#python ../scripts/CRSEG_main.py \
-#        --target_fa_path $BASEPATH/crseg_outputs/fa_1mm_cropped.nii.gz \
-#        --target_lowb_path $BASEPATH/crseg_outputs/lowb_1mm_cropped.nii.gz \
-#        --wm_seg_path $BASEPATH/crseg_outputs/unet_predictions/unet_results/wmunet.seg.mgz \
-#        --atlas_fa_path /autofs/space/nicc_003/users/olchanyi/Atlases/CRSEG_atlas/FSL_HCP1065_FA_0.5mm_BRAINSTEM_CROPPED_128.nii.gz \
-#        --atlas_lowb_path /autofs/space/nicc_003/users/olchanyi/Atlases/CRSEG_atlas/T2_0.5mm_BRAINSTEM_CROPPED_128.nii.gz \
-#        --atlas_aan_label_directory /autofs/space/nicc_003/users/olchanyi/Atlases/CRSEG_atlas/AAN_probabilistic_labels_128 \
-#        --label_list_path /autofs/space/nicc_003/users/olchanyi/Atlases/CRSEG_atlas/brainstem_wm_label_list.npy \
-#        --atlas_wm_seg_path /autofs/space/nicc_003/users/olchanyi/scripts/ANTs/scripts/WMB_templates/CRSEG_ANTs_TEMPLATE.nii.gz \
-#        --output_directory $BASEPATH/crseg_outputs/registration_outputs \
-#        --resolution 1.0 \
-#        --num_threads 1 \
-#        --label_overlap 0.3 \
+        # ----------- Unet WM segmentation script ----------- #
+        python ../CRSEG/unet_wm_predict.py \
+                --model_file /autofs/space/nicc_003/users/olchanyi/models/CRSEG_unet_models/joint_brainstem_model_v2/dice_090.h5 \
+                --output_path $BASEPATH/crseg_outputs/unet_predictions \
+                --lowb_file $BASEPATH/crseg_outputs/lowb_1mm_cropped_norm.nii.gz \
+                --fa_file $BASEPATH/crseg_outputs/fa_1mm_cropped_norm.nii.gz \
+                --tract_file $BASEPATH/crseg_outputs/tracts_concatenated_1mm_cropped_norm.nii.gz \
+                --label_list_path /autofs/space/nicc_003/users/olchanyi/data/CRSEG_unet_training_data/7ROI_training_dataset/brainstem_wm_label_list.npy \
 
 
 
-# ----------- run probtrackx script ----------- #
-python ../scripts/run_probtrackx.py \
-        --bedpost_path $BASEPATH/Native/dMRI/3T.bedpostX \
-        --seg_path $BASEPATH/crseg_outputs/registration_outputs/AAN_label_volume_transformed.nii.gz \
-        --probtrackx_path $BASEPATH/crseg_outputs/probtrackx_outputs \
-        --template_path $PROCESSPATH/nodif_brain_mask.nii.gz \
+        # ----------- CRSEG registration script ----------- #
+        python ../scripts/CRSEG_main.py \
+                --target_fa_path $BASEPATH/crseg_outputs/fa_1mm_cropped.nii.gz \
+                --target_lowb_path $BASEPATH/crseg_outputs/lowb_1mm_cropped.nii.gz \
+                --wm_seg_path $BASEPATH/crseg_outputs/unet_predictions/unet_results/wmunet.seg.mgz \
+                --atlas_fa_path /autofs/space/nicc_003/users/olchanyi/Atlases/CRSEG_atlas/FSL_HCP1065_FA_0.5mm_BRAINSTEM_CROPPED_128.nii.gz \
+                --atlas_lowb_path /autofs/space/nicc_003/users/olchanyi/Atlases/CRSEG_atlas/T2_0.5mm_BRAINSTEM_CROPPED_128.nii.gz \
+                --atlas_aan_label_directory /autofs/space/nicc_003/users/olchanyi/Atlases/CRSEG_atlas/AAN_probabilistic_labels_128 \
+                --label_list_path /autofs/space/nicc_003/users/olchanyi/Atlases/CRSEG_atlas/brainstem_wm_label_list.npy \
+                --atlas_wm_seg_path /autofs/space/nicc_003/users/olchanyi/scripts/ANTs/scripts/WMB_templates/CRSEG_ANTs_TEMPLATE.nii.gz \
+                --output_directory $BASEPATH/crseg_outputs/registration_outputs \
+                --resolution 1.0 \
+                --num_threads 1 \
+                --label_overlap 0.3 \
+
+
+
+        # ----------- run probtrackx script ----------- #
+        python ../scripts/run_probtrackx.py \
+                --bedpost_path $BASEPATH/Native/dMRI/3T.bedpostX \
+                --seg_path $BASEPATH/crseg_outputs/registration_outputs/AAN_label_volume_transformed.nii.gz \
+                --probtrackx_path $BASEPATH/crseg_outputs/probtrackx_outputs \
+                --template_path $PROCESSPATH/nodif_brain_mask.nii.gz \
