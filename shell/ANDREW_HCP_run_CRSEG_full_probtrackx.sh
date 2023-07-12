@@ -56,8 +56,7 @@ declare -a StringArray=("/autofs/space/nicc_003/users/olchanyi/data/HCP/100610"
                         "/autofs/space/nicc_003/users/olchanyi/data/HCP/157336"
                         "/autofs/space/nicc_003/users/olchanyi/data/HCP/158035"
                         "/autofs/space/nicc_003/users/olchanyi/data/HCP/158136"
-                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/159239"
-                   )
+                        "/autofs/space/nicc_003/users/olchanyi/data/HCP/159239")
 
 
 for val in ${StringArray[@]}; do
@@ -136,4 +135,5 @@ for val in ${StringArray[@]}; do
                 --bedpost_path $BASEPATH/Native/dMRI/3T.bedpostX \
                 --seg_path $BASEPATH/crseg_outputs/registration_outputs/AAN_label_volume_transformed.nii.gz \
                 --probtrackx_path $BASEPATH/crseg_outputs/probtrackx_outputs \
-                --template_path $PROCESSPATH/nodif_brain_mask.nii.gz \
+                --template_path $PROCESSPATH/nodif_brain_mask.nii.gz
+done
